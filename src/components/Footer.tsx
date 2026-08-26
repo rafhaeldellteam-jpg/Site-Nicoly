@@ -1,7 +1,13 @@
+﻿import NewsletterForm from "@/components/NewsletterForm";
+
 export default function Footer() {
   return (
     <footer className="border-t border-(--border-color) pt-10 pb-8" style={{ background: "var(--bg-secondary)" }}>
       <div className="container-x">
+        <div className="max-w-md mx-auto mb-10">
+          <NewsletterForm />
+        </div>
+
         <p className="text-(--text-muted) text-sm text-center">
           &copy; {new Date().getFullYear()} Nicbeautty Lash Designer. Todos os direitos reservados.
         </p>

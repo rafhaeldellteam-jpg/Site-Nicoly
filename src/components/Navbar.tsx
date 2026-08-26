@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -8,9 +8,9 @@ import { supabase } from "@/lib/supabase";
 import { capturarCampanha } from "@/lib/rastreio";
 
 const LINKS = [
-  { href: "/#inicio", label: "Início" },
+  { href: "/#inicio", label: "InÃ­cio" },
   { href: "/#sobre", label: "Diferenciais" },
-  { href: "/catalogo", label: "Catálogo" },
+  { href: "/catalogo", label: "CatÃ¡logo" },
   { href: "/planos", label: "Planos" },
   { href: "/#galeria", label: "Galeria" },
   { href: "/#contato", label: "Contato" },
@@ -114,7 +114,7 @@ export default function Navbar() {
                 href="/meus-horarios"
                 className="hidden lg:inline-block text-sm text-(--text-muted) hover:text-(--rose-gold) transition-colors"
               >
-                Meus Horários
+                Meus HorÃ¡rios
               </Link>
               <Link
                 href="/admin"
@@ -125,7 +125,7 @@ export default function Navbar() {
                 <span className="w-7 h-7 rounded-full bg-(--bg-tertiary) border border-(--border-color) flex items-center justify-center text-xs font-bold text-(--text-main)">
                   {usuario.nome.trim().charAt(0).toUpperCase()}
                 </span>
-                <span className="hidden lg:inline">Olá, {usuario.nome.split(" ")[0]}</span>
+                <span className="hidden lg:inline">OlÃ¡, {usuario.nome.split(" ")[0]}</span>
               </Link>
               <button
                 onClick={sair}
@@ -178,7 +178,7 @@ export default function Navbar() {
                 }}
                 className="btn btn-primary btn-block py-3!"
               >
-                Agendar Horário
+                Agendar HorÃ¡rio
               </button>
             </li>
             {usuario ? (
@@ -189,11 +189,11 @@ export default function Navbar() {
                     onClick={() => setMenuAberto(false)}
                     className="block py-1 text-(--text-main) hover:text-(--rose-gold)"
                   >
-                    Meus Horários
+                    Meus HorÃ¡rios
                   </Link>
                 </li>
                 <li className="flex items-center justify-between text-(--text-muted) text-sm px-1">
-                  <span>Olá, {usuario.nome.split(" ")[0]}</span>
+                  <span>OlÃ¡, {usuario.nome.split(" ")[0]}</span>
                   <button onClick={sair} className="text-(--rose-gold)">Sair</button>
                 </li>
               </>

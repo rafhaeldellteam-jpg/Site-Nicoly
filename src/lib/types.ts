@@ -88,3 +88,47 @@ export interface DashboardData {
   concluidos_total: number;
   proximos: (Appointment & { servico_nome: string | null })[];
 }
+
+export interface BlogPost {
+  id?: number;
+  titulo: string;
+  slug: string;
+  resumo: string | null;
+  conteudo: string;
+  imagem: string | null;
+  tags: string[] | null;
+  publicado: boolean | null;
+  criado_em?: string | null;
+}
+
+export interface Promocao {
+  id?: number;
+  titulo: string;
+  descricao: string | null;
+  imagem: string | null;
+  cupom: string | null;
+  desconto: string | null;
+  validade: string | null;
+  ativa: boolean | null;
+  criado_em?: string | null;
+}
+
+export interface Referral {
+  id?: number;
+  code: string;
+  referrer_name: string | null;
+  referrer_whatsapp: string | null;
+  referred_name: string | null;
+  referred_whatsapp: string | null;
+  status: string | null;
+  criado_em?: string | null;
+}
+
+export interface Newsletter {
+  id?: number;
+  nome: string | null;
+  contato: string;
+  tipo: string | null;
+  ativo: boolean | null;
+  criado_em?: string | null;
+}
