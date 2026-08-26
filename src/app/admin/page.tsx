@@ -82,12 +82,12 @@ const ABAS: [Aba, string, ReactNode][] = [
   ],
   [
     "avaliacoes",
-    "AvaliaÃ§Ãµes",
+    "Avaliações",
     <polygon key="star" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />,
   ],
   [
     "catalogo",
-    "CatÃ¡logo",
+    "Catálogo",
     <>
       <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
     </>,
@@ -103,7 +103,7 @@ const ABAS: [Aba, string, ReactNode][] = [
   ],
   [
     "funcionarios",
-    "FuncionÃ¡rias",
+    "Funcionárias",
     <>
       <circle cx="9" cy="7" r="4" />
       <path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2" />
@@ -125,7 +125,7 @@ const ABAS: [Aba, string, ReactNode][] = [
   ],
   [
     "historico",
-    "HistÃ³rico",
+    "Histórico",
     <>
       <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
@@ -135,16 +135,16 @@ const ABAS: [Aba, string, ReactNode][] = [
 ];
 
 const TITULOS: Record<Aba, { titulo: string; subtitulo: string }> = {
-  dashboard: { titulo: "Dashboard", subtitulo: "VisÃ£o geral do seu negÃ³cio" },
-  agendamentos: { titulo: "Agendamentos", subtitulo: "Gerencie os horÃ¡rios marcados" },
+  dashboard: { titulo: "Dashboard", subtitulo: "Visão geral do seu negócio" },
+  agendamentos: { titulo: "Agendamentos", subtitulo: "Gerencie os horários marcados" },
   planos: { titulo: "Planos VIP", subtitulo: "Assinaturas mensais das clientes" },
   clientes: { titulo: "Clientes", subtitulo: "Contas criadas no site e no Google" },
-  avaliacoes: { titulo: "AvaliaÃ§Ãµes", subtitulo: "Aprove ou reprove as avaliaÃ§Ãµes" },
-  catalogo: { titulo: "CatÃ¡logo", subtitulo: "ServiÃ§os, preÃ§os, fotos e tempos" },
-  galeria: { titulo: "Galeria", subtitulo: "Fotos exibidas na pÃ¡gina inicial" },
-  funcionarios: { titulo: "FuncionÃ¡rias", subtitulo: "Equipe apresentada no site" },
-  bloqueios: { titulo: "Bloqueios", subtitulo: "Dias ou horÃ¡rios indisponÃ­veis" },
-  historico: { titulo: "HistÃ³rico", subtitulo: "Atendimentos passados e cancelados" },
+  avaliacoes: { titulo: "Avaliações", subtitulo: "Aprove ou reprove as avaliações" },
+  catalogo: { titulo: "Catálogo", subtitulo: "Serviços, preços, fotos e tempos" },
+  galeria: { titulo: "Galeria", subtitulo: "Fotos exibidas na página inicial" },
+  funcionarios: { titulo: "Funcionárias", subtitulo: "Equipe apresentada no site" },
+  bloqueios: { titulo: "Bloqueios", subtitulo: "Dias ou horários indisponíveis" },
+  historico: { titulo: "Histórico", subtitulo: "Atendimentos passados e cancelados" },
   marketing: { titulo: "Marketing", subtitulo: "Blog, promocoes, newsletter e indicacoes" },
 };
 
@@ -201,7 +201,7 @@ export default function AdminPage() {
           {estado === "negado" ? (
             <>
               <p className="text-center text-(--text-muted) text-sm mb-6">
-                Esta conta nÃ£o tem permissÃ£o de administradora.
+                Esta conta não tem permissão de administradora.
               </p>
               <button
                 onClick={async () => {
@@ -385,9 +385,9 @@ function Vazio({ tabela }: { tabela: string }) {
   return (
     <div className="lux-card p-8 text-center max-w-xl mx-auto">
       <p className="text-(--text-muted)">
-        As tabelas do painel ainda nÃ£o existem no banco. Rode o arquivo{" "}
+        As tabelas do painel ainda não existem no banco. Rode o arquivo{" "}
         <code className="text-(--rose-gold)">sql-painel-nicbeautty.sql</code> no SQL Editor do
-        Supabase ({tabela}) e recarregue esta pÃ¡gina.
+        Supabase ({tabela}) e recarregue esta página.
       </p>
     </div>
   );
@@ -418,18 +418,18 @@ function AbaDashboard() {
 
   const cards: [string, number][] = [
     ["Agendados hoje", dados.agendados_hoje],
-    ["PrÃ³ximos 7 dias", dados.proximos_7_dias],
+    ["Próximos 7 dias", dados.proximos_7_dias],
     ["Clientes cadastrados", dados.total_clientes],
-    ["AvaliaÃ§Ãµes pendentes", dados.avaliacoes_pendentes],
+    ["Avaliações pendentes", dados.avaliacoes_pendentes],
     ["Planos ativos", dados.assinaturas_ativas],
-    ["Atendimentos concluÃ­dos", dados.concluidos_total],
+    ["Atendimentos concluídos", dados.concluidos_total],
   ];
 
   return (
     <>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <p className="text-(--text-muted) text-sm">
-          AtualizaÃ§Ã£o automÃ¡tica a cada 30s{atualizado ? ` Â· Ãºltima Ã s ${atualizado.toLocaleTimeString("pt-BR")}` : ""}
+          Atualização automática a cada 30s{atualizado ? ` Â· última às ${atualizado.toLocaleTimeString("pt-BR")}` : ""}
         </p>
         <button onClick={carregar} className="btn btn-outline py-2! px-5! text-[0.85rem]!">
           Atualizar agora
@@ -445,7 +445,7 @@ function AbaDashboard() {
         ))}
       </div>
 
-      <h3 className="font-heading text-xl text-(--rose-gold-light) mb-4">PrÃ³ximos agendamentos</h3>
+      <h3 className="font-heading text-xl text-(--rose-gold-light) mb-4">Próximos agendamentos</h3>
       {dados.proximos.length === 0 ? (
         <p className="text-(--text-muted)">Nenhum agendamento futuro por aqui.</p>
       ) : (
@@ -458,7 +458,7 @@ function AbaDashboard() {
               </div>
               <div className="flex-1 min-w-[150px]">
                 <strong>{a.client_name}</strong>
-                <p className="text-sm text-(--text-muted)">{a.servico_nome ?? "ServiÃ§o"}</p>
+                <p className="text-sm text-(--text-muted)">{a.servico_nome ?? "Serviço"}</p>
               </div>
               <span className="text-xs px-2 py-0.5 rounded-full border border-green-500/30 text-green-400 bg-green-500/10">confirmado</span>
             </div>
@@ -496,7 +496,7 @@ function AbaAgendamentos() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      {porData.size === 0 && <p className="text-(--text-muted)">Nenhum agendamento futuro. Veja o histÃ³rico.</p>}
+      {porData.size === 0 && <p className="text-(--text-muted)">Nenhum agendamento futuro. Veja o histórico.</p>}
       {[...porData.entries()].map(([data, ags]) => (
         <section key={data}>
           <h3 className="font-heading text-xl text-(--rose-gold-light) mb-3">
@@ -513,7 +513,7 @@ function AbaAgendamentos() {
                 <div className="flex-1 min-w-[160px]">
                   <strong>{a.client_name}</strong>
                   <p className="text-sm text-(--text-muted)">
-                    {a.servico_nome ?? "ServiÃ§o"} â€¢ {a.client_phone}
+                    {a.servico_nome ?? "Serviço"} â€¢ {a.client_phone}
                   </p>
                 </div>
                 <select
@@ -528,7 +528,7 @@ function AbaAgendamentos() {
                   }}
                 >
                   <option value="confirmado">Confirmado</option>
-                  <option value="concluido">ConcluÃ­do</option>
+                  <option value="concluido">Concluído</option>
                   <option value="cancelado">Cancelado</option>
                 </select>
                 <a
@@ -602,11 +602,11 @@ function AbaPlanos() {
                   )}
                 </div>
                 <p className="text-sm text-(--text-muted)">
-                  {a.tecnica ?? "Plano Mensal"} â€¢ R$ {Number(a.valor_mensal ?? 180).toFixed(2).replace(".", ",")}/mÃªs
+                  {a.tecnica ?? "Plano Mensal"} â€¢ R$ {Number(a.valor_mensal ?? 180).toFixed(2).replace(".", ",")}/mês
                   {a.cliente_whatsapp ? ` â€¢ ${a.cliente_whatsapp}` : ""}
                 </p>
                 <p className="text-xs text-(--text-muted)">
-                  InÃ­cio: {a.inicio ? new Date(a.inicio + "T12:00:00").toLocaleDateString("pt-BR") : "-"}
+                  Início: {a.inicio ? new Date(a.inicio + "T12:00:00").toLocaleDateString("pt-BR") : "-"}
                   {a.cliente_email ? ` â€¢ ${a.cliente_email}` : ""}
                 </p>
               </div>
@@ -617,7 +617,7 @@ function AbaPlanos() {
                   alert(r.msg ?? (r.ok ? "Lembrete enviado." : "Falha ao enviar."));
                 }}
                 className="btn btn-outline py-2! px-4! text-[0.8rem]!"
-                title="Envia e-mail de lembrete de renovaÃ§Ã£o para a cliente"
+                title="Envia e-mail de lembrete de renovação para a cliente"
               >
                 Lembrete
               </button>
@@ -687,11 +687,11 @@ function FormAssinatura({ aoSalvar }: { aoSalvar: () => void }) {
         <input className="input-lux" placeholder="Nome da cliente *" value={nome} onChange={(e) => setNome(e.target.value)} />
         <input className="input-lux" placeholder="WhatsApp" value={whats} onChange={(e) => setWhats(e.target.value)} />
         <input className="input-lux" placeholder="E-mail (recebe o plano)" value={emailCliente} onChange={(e) => setEmailCliente(e.target.value)} />
-        <input className="input-lux" placeholder="TÃ©cnica escolhida" value={tecnica} onChange={(e) => setTecnica(e.target.value)} />
+        <input className="input-lux" placeholder="Técnica escolhida" value={tecnica} onChange={(e) => setTecnica(e.target.value)} />
         <input className="input-lux" placeholder="Valor mensal" value={valor} onChange={(e) => setValor(e.target.value)} />
       </div>
       <div className="flex gap-3 items-center flex-wrap">
-        <label className="text-sm text-(--text-muted)">InÃ­cio:</label>
+        <label className="text-sm text-(--text-muted)">Início:</label>
         <input type="date" className="input-lux w-auto!" value={inicio} onChange={(e) => setInicio(e.target.value)} />
         <button
           onClick={async () => {
@@ -741,7 +741,7 @@ function AbaClientes() {
 
   if (!items) return <p className="text-(--text-muted)">Carregando clientes...</p>;
   if (items.length === 0)
-    return <p className="text-(--text-muted)">Nenhuma conta cadastrada ainda. As contas aparecem aqui automaticamente quando alguÃ©m faz login ou cria conta no site.</p>;
+    return <p className="text-(--text-muted)">Nenhuma conta cadastrada ainda. As contas aparecem aqui automaticamente quando alguém faz login ou cria conta no site.</p>;
 
   return (
     <>
@@ -792,7 +792,7 @@ function AbaAvaliacoes() {
   }, [carregar]);
 
   if (!items) return <p className="text-(--text-muted)">Carregando...</p>;
-  if (items.length === 0) return <p className="text-(--text-muted)">Nenhuma avaliaÃ§Ã£o recebida.</p>;
+  if (items.length === 0) return <p className="text-(--text-muted)">Nenhuma avaliação recebida.</p>;
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -858,7 +858,7 @@ function AbaAvaliacoes() {
             )}
             <button
               onClick={async () => {
-                if (!confirm("Deletar avaliaÃ§Ã£o de " + f.nome + "?")) return;
+                if (!confirm("Deletar avaliação de " + f.nome + "?")) return;
                 const { adminDeleteFeedback } = await import("@/lib/actions");
                 await adminDeleteFeedback(f.id);
                 carregar();
@@ -874,7 +874,7 @@ function AbaAvaliacoes() {
   );
 }
 
-/* ==================== CATÃLOGO ==================== */
+/* ==================== CATÁLOGO ==================== */
 
 function AbaCatalogo() {
   const [services, setServices] = useState<Service[] | null>(null);
@@ -888,19 +888,19 @@ function AbaCatalogo() {
     carregar();
   }, [carregar]);
 
-  if (!services) return <p className="text-(--text-muted)">Carregando catÃ¡logo...</p>;
+  if (!services) return <p className="text-(--text-muted)">Carregando catálogo...</p>;
 
   return (
     <>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <p className="text-(--text-muted) text-sm">{services.length} serviÃ§os no catÃ¡logo Â· alteraÃ§Ãµes entram no site na hora</p>
+        <p className="text-(--text-muted) text-sm">{services.length} serviços no catálogo Â· alterações entram no site na hora</p>
         <button
           onClick={async () => {
             const { adminSaveService } = await import("@/lib/actions");
             await adminSaveService({
               id: 0,
-              nome: "Novo ServiÃ§o",
-              descricao: "Descreva o serviÃ§o.",
+              nome: "Novo Serviço",
+              descricao: "Descreva o serviço.",
               duracao: "2h",
               aplicacao: "",
               manutencao: [],
@@ -912,7 +912,7 @@ function AbaCatalogo() {
           }}
           className="btn btn-primary py-2.5! px-6! text-[0.9rem]!"
         >
-          + Novo serviÃ§o
+          + Novo serviço
         </button>
       </div>
 
@@ -986,11 +986,11 @@ function CardServico({ service, aoSalvar }: { service: Service; aoSalvar: () => 
           <img src={imagemUrl} alt={nome} className="w-20 h-20 rounded-xl object-cover border border-(--border-color-strong)" />
         )}
         <div className="flex-1 space-y-3">
-          <input className="input-lux" placeholder="Nome do serviÃ§o *" value={nome} onChange={(e) => setNome(e.target.value)} />
+          <input className="input-lux" placeholder="Nome do serviço *" value={nome} onChange={(e) => setNome(e.target.value)} />
           <textarea
             className="input-lux resize-none"
             rows={2}
-            placeholder="DescriÃ§Ã£o"
+            placeholder="Descrição"
             value={descricao}
             onChange={(e) => setDescricao(e.target.value)}
           />
@@ -1008,17 +1008,17 @@ function CardServico({ service, aoSalvar }: { service: Service; aoSalvar: () => 
         <input className="input-lux" placeholder="Tempo (ex: 2h a 2:30h)" value={duracao} onChange={(e) => setDuracao(e.target.value)} />
       </div>
 
-      <input className="input-lux mb-3" placeholder="AplicaÃ§Ã£o (texto exibido no catÃ¡logo)" value={aplicacao} onChange={(e) => setAplicacao(e.target.value)} />
+      <input className="input-lux mb-3" placeholder="Aplicação (texto exibido no catálogo)" value={aplicacao} onChange={(e) => setAplicacao(e.target.value)} />
 
       <input
         className="input-lux mb-3"
-        placeholder='ManutenÃ§Ãµes â€” ex: R$ 90,00 (atÃ© 15 dias); R$ 100,00 (21 dias)'
+        placeholder='Manutenções â€” ex: R$ 90,00 (até 15 dias); R$ 100,00 (21 dias)'
         value={manutencaoStr}
         onChange={(e) => setManutencaoStr(e.target.value)}
       />
       <input
         className="input-lux mb-3"
-        placeholder="Texto do botÃ£o (opcional)"
+        placeholder="Texto do botão (opcional)"
         value={textobotao}
         onChange={(e) => setTextobotao(e.target.value)}
       />
@@ -1121,10 +1121,10 @@ function AbaGaleria() {
   return (
     <>
       <div className="lux-card p-6 mb-8 max-w-3xl">
-        <h3 className="font-heading text-lg mb-4">Adicionar foto Ã  galeria do site</h3>
+        <h3 className="font-heading text-lg mb-4">Adicionar foto à galeria do site</h3>
         <div className="grid sm:grid-cols-2 gap-3 mb-3">
-          <input className="input-lux" placeholder="TÃ­tulo *" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
-          <input className="input-lux" placeholder="DescriÃ§Ã£o curta" value={desc} onChange={(e) => setDesc(e.target.value)} />
+          <input className="input-lux" placeholder="Título *" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+          <input className="input-lux" placeholder="Descrição curta" value={desc} onChange={(e) => setDesc(e.target.value)} />
         </div>
         <div className="grid sm:grid-cols-3 gap-3 mb-3 items-center">
           <label className="btn btn-outline py-2.5! px-5! text-[0.85rem]! cursor-pointer inline-flex items-center gap-2 justify-center">
@@ -1142,7 +1142,7 @@ function AbaGaleria() {
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <button onClick={adicionar} disabled={salvando || !titulo.trim()} className="btn btn-primary py-2.5! px-6! text-[0.9rem]!">
-            {salvando ? "Enviando..." : "Adicionar Ã  galeria"}
+            {salvando ? "Enviando..." : "Adicionar à galeria"}
           </button>
           {msg && <span className="text-sm text-(--rose-gold-light)">{msg}</span>}
         </div>
@@ -1152,7 +1152,7 @@ function AbaGaleria() {
         <p className="text-(--text-muted)">Carregando galeria...</p>
       ) : items.length === 0 ? (
         <p className="text-(--text-muted)">
-          Galeria vazia (ou tabela ainda nÃ£o criada â€” rode o sql-painel-nicbeautty.sql). Enquanto isso o site mostra as fotos padrÃ£o.
+          Galeria vazia (ou tabela ainda não criada â€” rode o sql-painel-nicbeautty.sql). Enquanto isso o site mostra as fotos padrão.
         </p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1176,8 +1176,8 @@ function CardGaleria({ item, aoSalvar }: { item: GaleriaItem; aoSalvar: () => vo
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={item.imagem} alt={item.titulo} className="w-full aspect-square object-cover" />
       <div className="p-4 space-y-2.5">
-        <input className="input-lux" placeholder="TÃ­tulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
-        <input className="input-lux" placeholder="DescriÃ§Ã£o" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
+        <input className="input-lux" placeholder="Título" value={titulo} onChange={(e) => setTitulo(e.target.value)} />
+        <input className="input-lux" placeholder="Descrição" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
         <input className="input-lux" placeholder="Ordem" inputMode="numeric" value={ordem} onChange={(e) => setOrdem(e.target.value)} />
         <div className="flex gap-2">
           <button
@@ -1216,7 +1216,7 @@ function CardGaleria({ item, aoSalvar }: { item: GaleriaItem; aoSalvar: () => vo
   );
 }
 
-/* ==================== FUNCIONÃRIOS ==================== */
+/* ==================== FUNCIONÁRIOS ==================== */
 
 function AbaFuncionarios() {
   const [items, setItems] = useState<Funcionario[] | null>(null);
@@ -1393,7 +1393,7 @@ function AbaBloqueios() {
         <h3 className="font-heading text-lg mb-4">Bloquear agenda</h3>
         <div className="grid sm:grid-cols-3 gap-3 mb-3">
           <input type="date" className="input-lux" value={data} onChange={(e) => setData(e.target.value)} />
-          <input className="input-lux" placeholder="HorÃ¡rio (vazio = dia todo)" value={horario} onChange={(e) => setHorario(e.target.value)} />
+          <input className="input-lux" placeholder="Horário (vazio = dia todo)" value={horario} onChange={(e) => setHorario(e.target.value)} />
           <input className="input-lux" placeholder="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
         </div>
         <div className="flex items-center gap-3">
@@ -1448,7 +1448,7 @@ function AbaHistorico() {
     carregar();
   }, [carregar]);
 
-  if (!items) return <p className="text-(--text-muted)">Carregando histÃ³rico...</p>;
+  if (!items) return <p className="text-(--text-muted)">Carregando histórico...</p>;
 
   const filtrados = filtro === "todos" ? items : items.filter((a) => a.status === filtro);
 
@@ -1457,7 +1457,7 @@ function AbaHistorico() {
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <select className="input-lux w-auto! py-2.5! px-4! text-sm" value={filtro} onChange={(e) => setFiltro(e.target.value)}>
           <option value="todos">Todos ({items.length})</option>
-          <option value="concluido">ConcluÃ­dos</option>
+          <option value="concluido">Concluídos</option>
           <option value="cancelado">Cancelados</option>
           <option value="">Antigos sem status</option>
         </select>
@@ -1467,7 +1467,7 @@ function AbaHistorico() {
       </div>
 
       {filtrados.length === 0 ? (
-        <p className="text-(--text-muted)">Nada no histÃ³rico com esse filtro.</p>
+        <p className="text-(--text-muted)">Nada no histórico com esse filtro.</p>
       ) : (
         <div className="space-y-4! md:space-y-3!">
           {filtrados.map((a) => (
@@ -1480,7 +1480,7 @@ function AbaHistorico() {
               </div>
               <div className="flex-1 min-w-[160px]">
                 <strong>{a.client_name}</strong>
-                <p className="text-sm text-(--text-muted)">{a.servico_nome ?? "ServiÃ§o"} â€¢ {a.client_phone}</p>
+                <p className="text-sm text-(--text-muted)">{a.servico_nome ?? "Serviço"} â€¢ {a.client_phone}</p>
               </div>
               <span
                 className={`text-xs px-2.5 py-1 rounded-full border ${
