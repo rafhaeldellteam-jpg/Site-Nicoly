@@ -174,6 +174,35 @@ export function buildBookingConfirmationEmail(d: BookingEmailData): string {
   });
 }
 
+/* ============ ASSINATURAS (notificação do salão) ============ */
+export interface AssinaturaEmailData {
+  nome: string;
+  whatsapp: string;
+  email?: string | null;
+  tecnica?: string | null;
+  valorMensal: number;
+  inicio: string;
+}
+
+export function buildAssinaturaSalonEmail(d: AssinaturaEmailData): string {
+  return EMAIL({
+    tituloIcone: "Nova Assinatura VIP",
+    subtituloIcone: "Uma cliente ativou o Plano VIP pelo site",
+    corpoTabela: [
+      { rotulo: "Cliente", valor: d.nome },
+      { rotulo: "WhatsApp", valor: d.whatsapp },
+      ...(d.email ? [{ rotulo: "E-mail", valor: d.email }] : []),
+      ...(d.tecnica ? [{ rotulo: "Técnica", valor: d.tecnica, destaque: true }] : []),
+      { rotulo: "Valor mensal", valor: `R$ ${Number(d.valorMensal).toFixed(2).replace(".", ",")}` },
+      { rotulo: "Início", valor: formatBRDate(d.inicio) },
+    ],
+    mensagemExtra: `<p style="color:#a1a1a8;font-size:12px;margin:0;text-align:center;">
+      A cliente também recebeu um e-mail confirmando que a assinatura foi concluída.
+    </p>`,
+    rodapeMsg: "Notificação automática do site Nicbeautty.",
+  });
+}
+
 /* ============ LEMBRETE DE RENOVAÇÃO DO PLANO ============ */
 export function buildReminderEmail(d: {
   nome: string;

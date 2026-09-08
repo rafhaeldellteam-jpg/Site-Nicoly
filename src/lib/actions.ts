@@ -9,6 +9,7 @@ import {
   buildBookingConfirmationEmail,
   buildPlanActivatedEmail,
   buildReminderEmail,
+  buildAssinaturaSalonEmail,
 } from "@/lib/emails";
 import type {
   Appointment,
@@ -491,6 +492,21 @@ export async function adminSaveAssinatura(
       durationMinutes: 30,
     }).catch(() => {});
 
+    const assinaturaData = {
+      nome: registro.cliente_nome,
+      whatsapp: registro.cliente_whatsapp ?? "-",
+      email: emailCliente,
+      tecnica: registro.tecnica,
+      valorMensal: registro.valor_mensal ?? 180,
+      inicio: registro.inicio,
+    };
+
+    void sendNicEmail(
+      process.env.GMAIL_USER || "nicbeautty@gmail.com",
+      `Nova assinatura VIP: ${registro.cliente_nome}`,
+      buildAssinaturaSalonEmail(assinaturaData)
+    ).catch(() => {});
+
     if (emailCliente) {
       void sendNicEmail(
         emailCliente,
@@ -682,6 +698,19 @@ export async function createAssinaturaPublic(input: {
     time: "09:00",
     durationMinutes: 30,
   }).catch(() => {});
+
+  void sendNicEmail(
+    process.env.GMAIL_USER || "nicbeautty@gmail.com",
+    `Nova assinatura VIP: ${nome}`,
+    buildAssinaturaSalonEmail({
+      nome,
+      whatsapp,
+      email,
+      tecnica,
+      valorMensal: 180,
+      inicio: registro.inicio,
+    })
+  ).catch(() => {});
 
   if (email) {
     void sendNicEmail(
