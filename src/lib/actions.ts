@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit } from "@/lib/rate-limit";
 import { getBusySlots, createCalendarEvent } from "@/lib/google-calendar";
@@ -161,7 +162,7 @@ export async function createAppointment(input: {
     horario: input.horario,
   };
 
-  void (async () => {
+  after(async () => {
     try {
       await createCalendarEvent({
         summary: `${servicoNome} — ${nome}`,
@@ -170,22 +171,30 @@ export async function createAppointment(input: {
         time: input.horario,
         durationMinutes: duracaoMin,
       });
+    } catch (err) {
+      console.error("Google Agenda (agendamento):", err);
+    }
+    try {
       await sendNicEmail(
         process.env.GMAIL_USER || "nicbeautty@gmail.com",
         `Novo agendamento: ${nome} · ${input.data.split("-").reverse().join("/")} ${input.horario}`,
         buildBookingSalonEmail(emailData)
       );
-      if (emailData.email) {
+    } catch (err) {
+      console.error("E-mail salão (agendamento):", err);
+    }
+    if (emailData.email) {
+      try {
         await sendNicEmail(
           emailData.email,
           `Horário confirmado na Nicbeautty — ${input.data.split("-").reverse().join("/")} às ${input.horario}`,
           buildBookingConfirmationEmail(emailData)
         );
+      } catch (err) {
+        console.error("E-mail cliente (agendamento):", err);
       }
-    } catch (err) {
-      console.error("Pós-agendamento:", err);
     }
-  })();
+  });
 
   return { ok: true };
 }
@@ -484,14 +493,6 @@ export async function adminSaveAssinatura(
   if (error) return { ok: false, erro: error.message };
 
   if (!a.id && (a.status || "ativo") === "ativo") {
-    void createCalendarEvent({
-      summary: `Plano VIP — ${registro.cliente_nome}`,
-      description: `Plano VIP Nicbeautty\nCliente: ${registro.cliente_nome}\nWhatsApp: ${registro.cliente_whatsapp ?? "-"}\nTécnica: ${registro.tecnica ?? "-"}\nValor mensal: R$ ${registro.valor_mensal}`,
-      date: registro.inicio,
-      time: "09:00",
-      durationMinutes: 30,
-    }).catch(() => {});
-
     const assinaturaData = {
       nome: registro.cliente_nome,
       whatsapp: registro.cliente_whatsapp ?? "-",
@@ -501,24 +502,44 @@ export async function adminSaveAssinatura(
       inicio: registro.inicio,
     };
 
-    void sendNicEmail(
-      process.env.GMAIL_USER || "nicbeautty@gmail.com",
-      `Nova assinatura VIP: ${registro.cliente_nome}`,
-      buildAssinaturaSalonEmail(assinaturaData)
-    ).catch(() => {});
-
-    if (emailCliente) {
-      void sendNicEmail(
-        emailCliente,
-        "Seu Plano VIP Nicbeautty foi ativado!",
-        buildPlanActivatedEmail({
-          nome: registro.cliente_nome,
-          tecnica: registro.tecnica,
-          valorMensal: registro.valor_mensal ?? 180,
-          inicio: registro.inicio,
-        })
-      ).catch(() => {});
-    }
+    after(async () => {
+      try {
+        await createCalendarEvent({
+          summary: `Plano VIP — ${registro.cliente_nome}`,
+          description: `Plano VIP Nicbeautty\nCliente: ${registro.cliente_nome}\nWhatsApp: ${registro.cliente_whatsapp ?? "-"}\nTécnica: ${registro.tecnica ?? "-"}\nValor mensal: R$ ${registro.valor_mensal}`,
+          date: registro.inicio,
+          time: "09:00",
+          durationMinutes: 30,
+        });
+      } catch (err) {
+        console.error("Google Agenda (assinatura admin):", err);
+      }
+      try {
+        await sendNicEmail(
+          process.env.GMAIL_USER || "nicbeautty@gmail.com",
+          `Nova assinatura VIP: ${registro.cliente_nome}`,
+          buildAssinaturaSalonEmail(assinaturaData)
+        );
+      } catch (err) {
+        console.error("E-mail salão (assinatura admin):", err);
+      }
+      if (emailCliente) {
+        try {
+          await sendNicEmail(
+            emailCliente,
+            "Seu Plano VIP Nicbeautty foi ativado!",
+            buildPlanActivatedEmail({
+              nome: registro.cliente_nome,
+              tecnica: registro.tecnica,
+              valorMensal: registro.valor_mensal ?? 180,
+              inicio: registro.inicio,
+            })
+          );
+        } catch (err) {
+          console.error("E-mail cliente (assinatura admin):", err);
+        }
+      }
+    });
   }
   return { ok: true };
 }
@@ -691,34 +712,46 @@ export async function createAssinaturaPublic(input: {
   }
   if (error) return { ok: false, erro: "Erro ao ativar o plano. Tente novamente." };
 
-  void createCalendarEvent({
-    summary: `Plano VIP — ${nome} (site)`,
-    description: `Plano VIP ativado pelo site.\nCliente: ${nome}\nWhatsApp: ${whatsapp}\nTécnica: ${tecnica ?? "-"}\nValor mensal: R$ 180`,
-    date: registro.inicio,
-    time: "09:00",
-    durationMinutes: 30,
-  }).catch(() => {});
-
-  void sendNicEmail(
-    process.env.GMAIL_USER || "nicbeautty@gmail.com",
-    `Nova assinatura VIP: ${nome}`,
-    buildAssinaturaSalonEmail({
-      nome,
-      whatsapp,
-      email,
-      tecnica,
-      valorMensal: 180,
-      inicio: registro.inicio,
-    })
-  ).catch(() => {});
-
-  if (email) {
-    void sendNicEmail(
-      email,
-      "Seu Plano VIP Nicbeautty foi ativado!",
-      buildPlanActivatedEmail({ nome, tecnica, valorMensal: 180, inicio: registro.inicio })
-    ).catch(() => {});
-  }
+  after(async () => {
+    try {
+      await createCalendarEvent({
+        summary: `Plano VIP — ${nome} (site)`,
+        description: `Plano VIP ativado pelo site.\nCliente: ${nome}\nWhatsApp: ${whatsapp}\nTécnica: ${tecnica ?? "-"}\nValor mensal: R$ 180`,
+        date: registro.inicio,
+        time: "09:00",
+        durationMinutes: 30,
+      });
+    } catch (err) {
+      console.error("Google Agenda (assinatura site):", err);
+    }
+    try {
+      await sendNicEmail(
+        process.env.GMAIL_USER || "nicbeautty@gmail.com",
+        `Nova assinatura VIP: ${nome}`,
+        buildAssinaturaSalonEmail({
+          nome,
+          whatsapp,
+          email,
+          tecnica,
+          valorMensal: 180,
+          inicio: registro.inicio,
+        })
+      );
+    } catch (err) {
+      console.error("E-mail salão (assinatura site):", err);
+    }
+    if (email) {
+      try {
+        await sendNicEmail(
+          email,
+          "Seu Plano VIP Nicbeautty foi ativado!",
+          buildPlanActivatedEmail({ nome, tecnica, valorMensal: 180, inicio: registro.inicio })
+        );
+      } catch (err) {
+        console.error("E-mail cliente (assinatura site):", err);
+      }
+    }
+  });
   return { ok: true };
 }
 
