@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 import { IconHeart } from "@/components/icons";
 import LoginModal from "@/components/LoginModal";
 import { supabase } from "@/lib/supabase";
+import { ADMIN_EMAILS_SET } from "@/lib/admin-emails";
 import { capturarCampanha } from "@/lib/rastreio";
+import { AdminAvatar } from "@/components/admin/shared";
 
 const LINKS = [
   { href: "/#inicio", label: "Início" },
@@ -19,7 +21,11 @@ const LINKS = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
-  const [usuario, setUsuario] = useState<{ nome: string; email: string } | null>(null);
+  const [usuario, setUsuario] = useState<{
+    nome: string;
+    email: string;
+    foto: string | null;
+  } | null>(null);
 
   useEffect(() => {
     capturarCampanha();
@@ -38,8 +44,13 @@ export default function Navbar() {
                 nome:
                   (u.user_metadata?.nome as string) ||
                   (u.user_metadata?.full_name as string) ||
-                  (u.email ?? "").split("@")[0],
+                  (u.email ?? "").split("@")[0] ||
+                  "?",
                 email: u.email ?? "",
+                foto:
+                  (u.user_metadata?.avatar_url as string) ||
+                  (u.user_metadata?.picture as string) ||
+                  null,
               }
             : null
         );
@@ -114,19 +125,25 @@ export default function Navbar() {
                 href="/meus-horarios"
                 className="hidden lg:inline-block text-sm text-(--text-muted) hover:text-(--rose-gold) transition-colors"
               >
-                Meus Horários
+                Minha Conta
               </Link>
               <Link
-                href="/admin"
+                href="/meus-horarios"
                 className="flex items-center gap-2 text-sm text-(--rose-gold) hover:text-(--rose-gold-light) transition-colors"
-                title="Meu painel"
-                aria-label="Meu painel"
+                title="Minha conta"
+                aria-label="Minha conta"
               >
-                <span className="w-7 h-7 rounded-full bg-(--bg-tertiary) border border-(--border-color) flex items-center justify-center text-xs font-bold text-(--text-main)">
-                  {usuario.nome.trim().charAt(0).toUpperCase()}
-                </span>
+                <AdminAvatar foto={usuario.foto} nome={usuario.nome} size={28} />
                 <span className="hidden lg:inline">Olá, {usuario.nome.split(" ")[0]}</span>
               </Link>
+              {ADMIN_EMAILS_SET.has(usuario.email) && (
+                <Link
+                  href="/admin"
+                  className="hidden lg:inline-block text-sm text-(--text-muted) hover:text-(--rose-gold) transition-colors"
+                >
+                  Painel
+                </Link>
+              )}
               <button
                 onClick={sair}
                 className="btn btn-outline hidden lg:inline-flex py-2! px-4! text-[0.8rem]!"
@@ -189,9 +206,20 @@ export default function Navbar() {
                     onClick={() => setMenuAberto(false)}
                     className="block py-1 text-(--text-main) hover:text-(--rose-gold)"
                   >
-                    Meus Horários
+                    Minha Conta
                   </Link>
                 </li>
+                {ADMIN_EMAILS_SET.has(usuario.email) && (
+                  <li>
+                    <Link
+                      href="/admin"
+                      onClick={() => setMenuAberto(false)}
+                      className="block py-1 text-(--text-main) hover:text-(--rose-gold)"
+                    >
+                      Painel Admin
+                    </Link>
+                  </li>
+                )}
                 <li className="flex items-center justify-between text-(--text-muted) text-sm px-1">
                   <span>Olá, {usuario.nome.split(" ")[0]}</span>
                   <button onClick={sair} className="text-(--rose-gold)">Sair</button>
