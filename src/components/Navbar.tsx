@@ -8,7 +8,6 @@ import BookingModal from "@/components/BookingModal";
 import MobileCTA from "@/components/MobileCTA";
 import NovidadesPopup from "@/components/NovidadesPopup";
 import { supabase } from "@/lib/supabase";
-import { isAdminEmail } from "@/lib/admin-emails";
 import { syncAuthCookie } from "@/lib/auth-cookie";
 import { capturarCampanha } from "@/lib/rastreio";
 import { AdminAvatar } from "@/components/admin/shared";
@@ -25,6 +24,7 @@ const LINKS = [
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [ehAdmin, setEhAdmin] = useState(false);
   const [usuario, setUsuario] = useState<{
     nome: string;
     email: string;
@@ -58,6 +58,15 @@ export default function Navbar() {
     function carregar() {
       supabase.auth.getSession().then(({ data }) => {
         syncAuthCookie(data.session);
+        // mostra o link "Painel" só para quem está na tabela de administradoras
+        if (data.session?.user?.email) {
+          import("@/lib/acesso-actions")
+            .then(({ souAdmin }) => souAdmin())
+            .then(setEhAdmin)
+            .catch(() => setEhAdmin(false));
+        } else {
+          setEhAdmin(false);
+        }
         const u = data.session?.user;
         setUsuario(
           u
@@ -159,7 +168,7 @@ export default function Navbar() {
                 <AdminAvatar foto={usuario.foto} nome={usuario.nome} size={28} />
                 <span className="hidden lg:inline">Olá, {usuario.nome.split(" ")[0]}</span>
               </Link>
-              {isAdminEmail(usuario.email) && (
+              {ehAdmin && (
                 <Link
                   href="/admin"
                   className="hidden lg:inline-block text-sm text-(--text-muted) hover:text-(--rose-gold) transition-colors"
@@ -240,7 +249,7 @@ export default function Navbar() {
                     Minha Conta
                   </Link>
                 </li>
-                {isAdminEmail(usuario.email) && (
+                {ehAdmin && (
                   <li>
                     <Link
                       href="/admin"

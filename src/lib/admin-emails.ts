@@ -1,12 +1,12 @@
 /**
- * E-mails com acesso ao painel administrativo.
+ * LISTA DE RESERVA de administradoras.
  *
- * No navegador esta lista só serve para mostrar/esconder o link "Painel".
- * A proteção de verdade acontece no servidor, em `requireAdmin()`
- * (src/lib/admin-auth.ts), que confere o token de login de cada chamada.
+ * Quem tem acesso ao painel agora é controlado pela tabela
+ * "administradores" no Supabase (Table Editor → administradores),
+ * conferida no servidor em src/lib/admin-auth.ts.
  *
- * Para trocar a lista sem mexer no código, defina na Vercel a variável
- * ADMIN_EMAILS (separados por vírgula). Ela vale só para o servidor.
+ * Esta lista só é usada se a tabela ainda não existir, para ninguém
+ * ficar trancado para fora do painel.
  */
 export const ADMIN_EMAILS: readonly string[] = [
   "phael.techsuporte@gmail.com",
