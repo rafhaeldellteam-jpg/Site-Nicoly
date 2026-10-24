@@ -1,14 +1,19 @@
 import type { NextConfig } from "next";
 
+// fotos vêm do Supabase atual (variável da Vercel) e, por compatibilidade, dos projetos anteriores
+const hostsSupabase = [
+  process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname : null,
+  "bghnoezksqxslojuvdrr.supabase.co",
+  "jfqfbpjimozevtjscbej.supabase.co",
+].filter((h, i, l): h is string => !!h && l.indexOf(h) === i);
+
 const nextConfig: NextConfig = {
   images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "jfqfbpjimozevtjscbej.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
-    ],
+    remotePatterns: hostsSupabase.map((hostname) => ({
+      protocol: "https" as const,
+      hostname,
+      pathname: "/storage/v1/object/public/**",
+    })),
   },
   async headers() {
     return [

@@ -10,13 +10,13 @@ import FeedbackList from "@/components/FeedbackList";
 import ShareButtons from "@/components/ShareButtons";
 import NewsletterForm from "@/components/NewsletterForm";
 import { getApprovedFeedbacks, getFuncionarios, getGaleria } from "@/lib/actions";
-import { imagemOtimizavel } from "@/lib/imagens";
+import { LOGO_MARCA, imagemOtimizavel } from "@/lib/imagens";
 import { ENDERECO, MAPS_URL } from "@/lib/endereco";
 import LinkWhatsapp from "@/components/LinkWhatsapp";
 import { BookingButton, FeedbackButton } from "@/components/TriggerButtons";
 import { IconSparkle, IconChat, WhatsAppIcon, InstagramIcon, GoogleMapsIcon } from "@/components/icons";
 
-const STORAGE = "https://jfqfbpjimozevtjscbej.supabase.co/storage/v1/object/public/products";
+const STORAGE = `${process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://bghnoezksqxslojuvdrr.supabase.co"}/storage/v1/object/public/products`;
 
 const GALERIA = [
   {
@@ -88,7 +88,7 @@ export default async function Home() {
       <header id="inicio" className="relative min-h-[100svh] flex items-center justify-center overflow-hidden">
         <GlitterCanvas />
         <div className="relative z-10 text-center px-5 sm:px-6 pt-[calc(env(safe-area-inset-top)+88px)] md:pt-[calc(env(safe-area-inset-top)+110px)] pb-14 max-w-3xl mx-auto reveal active">
-          <HeroLogo src={`${STORAGE}/nick_logo_$K.png`} />
+          <HeroLogo src={LOGO_MARCA} />
           <div className="mt-6 inline-flex items-center gap-2 text-(--rose-gold) text-xs tracking-[3px] uppercase font-semibold">
             <IconSparkle size={11} /> Lash Designer Specialist <IconSparkle size={11} />
           </div>
@@ -146,21 +146,16 @@ export default async function Home() {
               <div className="flex flex-wrap justify-center gap-5 mt-10">
                 {equipe.map((f) => (
                   <article key={f.id} className="lux-card p-6 w-full sm:w-[300px] text-center">
-                    {f.foto ? (
-                      <Image
-                        src={f.foto}
-                        alt={f.nome}
-                        width={112}
-                        height={112}
-                        loading="lazy"
-                        unoptimized={!imagemOtimizavel(f.foto)}
-                        className="w-28 h-28 mx-auto rounded-full object-cover border-2 border-(--border-color-strong)"
-                      />
-                    ) : (
-                      <span className="w-28 h-28 mx-auto rounded-full flex items-center justify-center font-heading text-4xl text-(--rose-gold) border-2 border-(--border-color-strong) bg-(--bg-tertiary)">
-                        {f.nome.charAt(0)}
-                      </span>
-                    )}
+                    {/* sem foto cadastrada no painel → mostra a logo da marca */}
+                    <Image
+                      src={f.foto || LOGO_MARCA}
+                      alt={f.nome}
+                      width={112}
+                      height={112}
+                      loading="lazy"
+                      unoptimized={!imagemOtimizavel(f.foto || LOGO_MARCA)}
+                      className="w-28 h-28 mx-auto rounded-full object-cover border-2 border-(--border-color-strong)"
+                    />
                     <h3 className="font-heading text-2xl text-(--rose-gold-light) mt-4">{f.nome}</h3>
                     {f.especialidade && <p className="text-xs uppercase tracking-[2px] text-(--rose-gold) mt-1">{f.especialidade}</p>}
                     {f.bio && <p className="text-sm text-(--text-muted) mt-3 leading-relaxed">{f.bio}</p>}
