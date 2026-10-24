@@ -145,7 +145,10 @@ export default function PlanosEscolha({
                   return (
                     <span key={id} role="cell" className={plano === id ? "on" : ""}>
                       {v === true ? (
-                        <IconCheck size={18} className="text-[#7bd88f] inline-block" />
+                        <>
+                          <IconCheck size={18} className="text-[#7bd88f] inline-block" />
+                          <span className="sr-only">Incluso</span>
+                        </>
                       ) : v === false ? (
                         <span className="text-(--text-muted)" aria-label="Não incluso">
                           —
