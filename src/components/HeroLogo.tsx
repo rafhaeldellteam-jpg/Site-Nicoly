@@ -21,10 +21,10 @@ export default function HeroLogo({ src }: { src: string }) {
         <Image
           src={src}
           alt="Nicoly, lash designer da Nicbeautty"
-          width={280}
-          height={280}
+          width={320}
+          height={320}
           priority
-          sizes="(max-width: 768px) 150px, 260px"
+          sizes="(max-width: 768px) 200px, 300px"
           className="hero-logo-img"
         />
       </div>

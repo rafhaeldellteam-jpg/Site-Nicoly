@@ -420,13 +420,13 @@ select.input-lux option { background: var(--bg-secondary); color: var(--text-mai
 }
 
 .hero-logo {
-  --tam: 150px;
+  --tam: 200px;
   position: relative;
   width: var(--tam);
   height: var(--tam);
   animation: heroLogoIn 1.2s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
-@media (min-width: 768px) { .hero-logo { --tam: 250px; } }
+@media (min-width: 768px) { .hero-logo { --tam: 300px; } }
 
 .hero-logo-float {
   position: relative;
