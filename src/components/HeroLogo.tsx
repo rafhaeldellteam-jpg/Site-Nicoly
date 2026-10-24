@@ -20,7 +20,7 @@ export default function HeroLogo({ src }: { src: string }) {
         </span>
         <Image
           src={src}
-          alt="Nicbeautty Lash Designer Specialist"
+          alt="Nicoly, lash designer da Nicbeautty"
           width={280}
           height={280}
           priority
