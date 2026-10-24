@@ -52,3 +52,16 @@ export function renovacaoInfo(inicio: string | null): { renovacao: Date; dias: n
     dias: Math.max(0, Math.ceil((renovacao.getTime() - hoje.getTime()) / 86400000)),
   };
 }
+
+/** Logo do estúdio (mesma dos e-mails), usada no topo do menu do painel. */
+export function LogoSite({ size = 40 }: { size?: number }) {
+  return (
+    <div
+      className="relative shrink-0 rounded-full overflow-hidden border border-(--border-color-strong)"
+      style={{ width: size, height: size, minWidth: size, background: "#fff" }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/images/logo-email.jpg" alt="Nicbeautty" className="absolute inset-0 w-full! h-full! object-cover" />
+    </div>
+  );
+}

@@ -893,6 +893,19 @@ select.input-lux option { background: var(--bg-secondary); color: var(--text-mai
 .adm-menu-item.on { color: var(--rose-gold); background: rgba(216, 163, 125, 0.12); }
 .adm-menu-item.sair:hover { color: #ef5350; }
 .adm-menu-rodape { padding: 10px; border-top: 1px solid var(--border-color); }
+.adm-perfil-foto { position: relative; flex-shrink: 0; cursor: pointer; border-radius: 50%; }
+.adm-perfil-foto > span {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; color: #14100c;
+  background: var(--rose-gold); border: 2px solid var(--bg-secondary);
+}
+.adm-perfil {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; margin-bottom: 6px; border-radius: 14px;
+  background: rgba(216, 163, 125, 0.06); border: 1px solid var(--border-color);
+}
 .adm-contador {
   min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
   display: inline-flex; align-items: center; justify-content: center;
