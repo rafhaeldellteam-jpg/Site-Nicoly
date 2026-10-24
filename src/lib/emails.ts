@@ -2,6 +2,16 @@ const BASE = "https://nicbeautty-novo.vercel.app";
 const LOGO = `${BASE}/images/logo-email.jpg`;
 const CHECK = `${BASE}/icons/icon-check.png`;
 
+/** Escapa texto digitado por visitantes antes de colocar no HTML do e-mail. */
+export function esc(valor: unknown): string {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 interface Linha {
   rotulo: string;
   valor: string;
@@ -13,8 +23,8 @@ function LINHAS(rows: Linha[]): string {
     .map(
       (r) => `
       <tr>
-        <td style="padding:9px 0;color:#a1a1a8;font-size:13px;">${r.rotulo}</td>
-        <td style="padding:9px 0;color:${r.destaque ? "#d8a37d" : "#f5f5f7"};font-size:${r.destaque ? "15px" : "14px"};font-weight:600;text-align:right;">${r.valor}</td>
+        <td style="padding:9px 0;color:#a1a1a8;font-size:13px;">${esc(r.rotulo)}</td>
+        <td style="padding:9px 0;color:${r.destaque ? "#d8a37d" : "#f5f5f7"};font-size:${r.destaque ? "15px" : "14px"};font-weight:600;text-align:right;">${esc(r.valor)}</td>
       </tr>
       <tr><td colspan="2"><hr style="border:none;border-top:1px solid rgba(216,163,125,0.15);margin:0;"></td></tr>`
     )
@@ -34,8 +44,8 @@ function EMAIL(opts: {
         <div style="width:60px;height:60px;background-color:rgba(216,163,125,0.18);border-radius:50%;margin:0 auto 14px;">
           <img src="${CHECK}" width="30" height="30" alt="" style="display:block;margin:0 auto;padding-top:15px;" />
         </div>
-        <h2 style="color:#f5f5f7;margin:0;font-size:21px;">${opts.tituloIcone}</h2>
-        ${opts.subtituloIcone ? `<p style="color:#a1a1a8;margin:8px 0 0;font-size:14px;">${opts.subtituloIcone}</p>` : ""}
+        <h2 style="color:#f5f5f7;margin:0;font-size:21px;">${esc(opts.tituloIcone)}</h2>
+        ${opts.subtituloIcone ? `<p style="color:#a1a1a8;margin:8px 0 0;font-size:14px;">${esc(opts.subtituloIcone)}</p>` : ""}
       </div>`
     : "";
 
@@ -108,7 +118,7 @@ export function formatBRDate(isoDate: string): string {
 
 /* ============ BOAS-VINDAS ============ */
 export function buildWelcomeEmail(nome: string | null): string {
-  const primeiro = (nome ?? "").split(" ")[0] || "querida cliente";
+  const primeiro = (nome ?? "").trim().split(" ")[0].slice(0, 30) || "querida cliente";
   return EMAIL({
     tituloIcone: `Bem-vinda, ${primeiro}!`,
     subtituloIcone: "Sua conta foi criada com sucesso",
@@ -182,12 +192,16 @@ export interface AssinaturaEmailData {
   tecnica?: string | null;
   valorMensal: number;
   inicio: string;
+  /** true quando veio do site e ainda precisa ser confirmada no painel */
+  pendente?: boolean;
 }
 
 export function buildAssinaturaSalonEmail(d: AssinaturaEmailData): string {
   return EMAIL({
-    tituloIcone: "Nova Assinatura VIP",
-    subtituloIcone: "Uma cliente ativou o Plano VIP pelo site",
+    tituloIcone: d.pendente ? "Novo Pedido de Plano VIP" : "Nova Assinatura VIP",
+    subtituloIcone: d.pendente
+      ? "Uma cliente pediu o Plano VIP pelo site"
+      : "Uma assinatura VIP foi cadastrada no painel",
     corpoTabela: [
       { rotulo: "Cliente", valor: d.nome },
       { rotulo: "WhatsApp", valor: d.whatsapp },
@@ -197,7 +211,9 @@ export function buildAssinaturaSalonEmail(d: AssinaturaEmailData): string {
       { rotulo: "Início", valor: formatBRDate(d.inicio) },
     ],
     mensagemExtra: `<p style="color:#a1a1a8;font-size:12px;margin:0;text-align:center;">
-      A cliente também recebeu um e-mail confirmando que a assinatura foi concluída.
+      ${d.pendente
+        ? "Combine o pagamento pelo WhatsApp e depois mude o status para <b>Ativo</b> no painel — a cliente recebe a confirmação automaticamente."
+        : "Se a cliente tem e-mail cadastrado, ela também recebeu a confirmação."}
     </p>`,
     rodapeMsg: "Notificação automática do site Nicbeautty.",
   });

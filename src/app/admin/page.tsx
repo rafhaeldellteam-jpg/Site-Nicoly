@@ -5,6 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { supabase } from "@/lib/supabase";
+import { isAdminEmail } from "@/lib/admin-emails";
+import { syncAuthCookie } from "@/lib/auth-cookie";
 import type {
   Appointment,
   Assinatura,
@@ -22,12 +24,6 @@ import {
   IconStar,
   WhatsAppIcon,
 } from "@/components/icons";
-
-const ALLOWLIST = [
-  "phael.techsuporte@gmail.com",
-  "phael.techsuporte2@gmail.com",
-  "nicbeautty@gmail.com",
-];
 
 type Aba =
   | "dashboard"
@@ -157,9 +153,11 @@ export default function AdminPage() {
   useEffect(() => {
     function checar() {
       supabase.auth.getSession().then(({ data }) => {
+        // o servidor confere este token em todas as ações do painel
+        syncAuthCookie(data.session);
         const email = data.session?.user?.email ?? "";
         if (!email) setEstado("login");
-        else if (!ALLOWLIST.includes(email)) setEstado("negado");
+        else if (!isAdminEmail(email)) setEstado("negado");
         else setEstado("ok");
       });
     }
@@ -176,7 +174,8 @@ export default function AdminPage() {
       password: String(fd.get("senha") ?? ""),
     });
     const emailLogado = data.session?.user?.email ?? "";
-    if (!error && !!data.session && ALLOWLIST.includes(emailLogado)) {
+    syncAuthCookie(data.session);
+    if (!error && !!data.session && isAdminEmail(emailLogado)) {
       setEstado("ok");
       setErroLogin(false);
     } else {
@@ -248,7 +247,7 @@ export default function AdminPage() {
         <div className="p-6 border-b border-(--border-color)">
           <Link href="/" className="flex items-center gap-3">
             <span className="w-11 h-11 rounded-full bg-(--bg-tertiary) border border-(--rose-gold)/40 flex items-center justify-center text-xl text-(--rose-gold)">
-              â™¥
+              ♥
             </span>
             <div>
               <h1 className="font-heading text-lg leading-tight">Nicbeautty</h1>
@@ -429,7 +428,7 @@ function AbaDashboard() {
     <>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <p className="text-(--text-muted) text-sm">
-          Atualização automática a cada 30s{atualizado ? ` Â· última às ${atualizado.toLocaleTimeString("pt-BR")}` : ""}
+          Atualização automática a cada 30s{atualizado ? ` · última às ${atualizado.toLocaleTimeString("pt-BR")}` : ""}
         </p>
         <button onClick={carregar} className="btn btn-outline py-2! px-5! text-[0.85rem]!">
           Atualizar agora
@@ -513,7 +512,7 @@ function AbaAgendamentos() {
                 <div className="flex-1 min-w-[160px]">
                   <strong>{a.client_name}</strong>
                   <p className="text-sm text-(--text-muted)">
-                    {a.servico_nome ?? "Serviço"} â€¢ {a.client_phone}
+                    {a.servico_nome ?? "Serviço"} • {a.client_phone}
                   </p>
                 </div>
                 <select
@@ -596,18 +595,18 @@ function AbaPlanos() {
                           : { color: "#7bd88f", background: "rgba(123,216,143,0.12)" }
                       }
                     >
-                      renova em {ren.dias} {ren.dias === 1 ? "dia" : "dias"} â€¢{" "}
+                      renova em {ren.dias} {ren.dias === 1 ? "dia" : "dias"} •{" "}
                       {ren.renovacao.toLocaleDateString("pt-BR")}
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-(--text-muted)">
-                  {a.tecnica ?? "Plano Mensal"} â€¢ R$ {Number(a.valor_mensal ?? 180).toFixed(2).replace(".", ",")}/mês
-                  {a.cliente_whatsapp ? ` â€¢ ${a.cliente_whatsapp}` : ""}
+                  {a.tecnica ?? "Plano Mensal"} • R$ {Number(a.valor_mensal ?? 180).toFixed(2).replace(".", ",")}/mês
+                  {a.cliente_whatsapp ? ` • ${a.cliente_whatsapp}` : ""}
                 </p>
                 <p className="text-xs text-(--text-muted)">
                   Início: {a.inicio ? new Date(a.inicio + "T12:00:00").toLocaleDateString("pt-BR") : "-"}
-                  {a.cliente_email ? ` â€¢ ${a.cliente_email}` : ""}
+                  {a.cliente_email ? ` • ${a.cliente_email}` : ""}
                 </p>
               </div>
               <button
@@ -623,7 +622,11 @@ function AbaPlanos() {
               </button>
               <select
                 className={`input-lux w-auto! py-2! px-3! text-sm ${
-                  a.status === "cancelado" ? "text-[#ef5350]!" : a.status === "pausado" ? "text-yellow-400!" : "text-green-400!"
+                  a.status === "cancelado"
+                    ? "text-[#ef5350]!"
+                    : a.status === "pausado" || a.status === "pendente"
+                      ? "text-yellow-400!"
+                      : "text-green-400!"
                 }`}
                 value={a.status ?? "ativo"}
                 onChange={async (e) => {
@@ -632,6 +635,7 @@ function AbaPlanos() {
                   carregar();
                 }}
               >
+                <option value="pendente">Pendente (aguardando pagamento)</option>
                 <option value="ativo">Ativo</option>
                 <option value="pausado">Pausado</option>
                 <option value="cancelado">Cancelado</option>
@@ -777,7 +781,7 @@ function AbaClientes() {
   );
 }
 
-/* ==================== AVALIAÃ‡Ã•ES ==================== */
+/* ==================== AVALIAÇÕES ==================== */
 
 function AbaAvaliacoes() {
   const [items, setItems] = useState<Feedback[] | null>(null);
@@ -893,7 +897,7 @@ function AbaCatalogo() {
   return (
     <>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-        <p className="text-(--text-muted) text-sm">{services.length} serviços no catálogo Â· alterações entram no site na hora</p>
+        <p className="text-(--text-muted) text-sm">{services.length} serviços no catálogo · alterações entram no site na hora</p>
         <button
           onClick={async () => {
             const { adminSaveService } = await import("@/lib/actions");
@@ -1012,7 +1016,7 @@ function CardServico({ service, aoSalvar }: { service: Service; aoSalvar: () => 
 
       <input
         className="input-lux mb-3"
-        placeholder='Manutenções â€” ex: R$ 90,00 (até 15 dias); R$ 100,00 (21 dias)'
+        placeholder='Manutenções — ex: R$ 90,00 (até 15 dias); R$ 100,00 (21 dias)'
         value={manutencaoStr}
         onChange={(e) => setManutencaoStr(e.target.value)}
       />
@@ -1152,7 +1156,7 @@ function AbaGaleria() {
         <p className="text-(--text-muted)">Carregando galeria...</p>
       ) : items.length === 0 ? (
         <p className="text-(--text-muted)">
-          Galeria vazia (ou tabela ainda não criada â€” rode o sql-painel-nicbeautty.sql). Enquanto isso o site mostra as fotos padrão.
+          Galeria vazia (ou tabela ainda não criada — rode o sql-painel-nicbeautty.sql). Enquanto isso o site mostra as fotos padrão.
         </p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1433,7 +1437,7 @@ function AbaBloqueios() {
   );
 }
 
-/* ==================== HISTÃ“RICO ==================== */
+/* ==================== HISTÓRICO ==================== */
 
 function AbaHistorico() {
   const [items, setItems] = useState<(Appointment & { servico_nome: string | null })[] | null>(null);
@@ -1480,7 +1484,7 @@ function AbaHistorico() {
               </div>
               <div className="flex-1 min-w-[160px]">
                 <strong>{a.client_name}</strong>
-                <p className="text-sm text-(--text-muted)">{a.servico_nome ?? "Serviço"} â€¢ {a.client_phone}</p>
+                <p className="text-sm text-(--text-muted)">{a.servico_nome ?? "Serviço"} • {a.client_phone}</p>
               </div>
               <span
                 className={`text-xs px-2.5 py-1 rounded-full border ${

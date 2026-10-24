@@ -18,7 +18,7 @@ export default function Reveal() {
     );
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
-  });
+  }, []);
 
   return null;
 }

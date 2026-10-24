@@ -4,7 +4,6 @@ import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
-import BookingModal from "@/components/BookingModal";
 import { ServiceBookingButton } from "@/components/TriggerButtons";
 import { getServices } from "@/lib/actions";
 import { IconStar, IconClock, IconSparkle, IconRefresh, IconHeart } from "@/components/icons";
@@ -125,7 +124,6 @@ export default async function CatalogoPage() {
       </main>
 
       <Footer />
-      <BookingModal />
     </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { IconCamera } from "@/components/icons";
+import { useModal } from "@/lib/use-modal";
 
 const ESTRELA_PATH =
   "M12 2l2.4 7.2L22 10l-7.6 3.6L17 22l-5-3.8L7 22l2.6-8.4L2 10l7.6-.8z";
@@ -22,6 +23,8 @@ export default function FeedbackModal() {
     window.addEventListener("abrir-feedback", abrir);
     return () => window.removeEventListener("abrir-feedback", abrir);
   }, []);
+
+  useModal(aberto, () => setAberto(false));
 
   if (!aberto) return null;
 
@@ -72,7 +75,7 @@ export default function FeedbackModal() {
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setAberto(false)}>
-      <div className="modal-container">
+      <div className="modal-container" role="dialog" aria-modal="true" aria-label="Avaliar atendimento">
         <button className="modal-close" onClick={() => setAberto(false)} aria-label="Fechar">
           &times;
         </button>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,7 @@ const VALID_ORIGINS = new Set([
   "pos_agendamento",
   "menu_mobile",
   "planos",
+  "barra_mobile",
 ]);
 
 export async function POST(req: Request) {
@@ -19,7 +21,12 @@ export async function POST(req: Request) {
     if (!VALID_ORIGINS.has(origem)) {
       return NextResponse.json({ error: "Origem inválida" }, { status: 400 });
     }
-    const utm = body.utm ? String(body.utm).slice(0, 40) : null;
+    const utm = body.utm ? String(body.utm).replace(/[^\w.-]/g, "").slice(0, 40) || null : null;
+
+    const ip = await clientIp();
+    if (!(await rateLimit(`clique:${ip}`, 30, 60 * 1000))) {
+      return NextResponse.json({ ok: false }, { status: 200 });
+    }
 
     const { error } = await supabaseAdmin.from("cliques_whatsapp").insert({
       origem,

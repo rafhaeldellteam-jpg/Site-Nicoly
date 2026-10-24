@@ -45,17 +45,18 @@ export default function PlanosSignup() {
         >
           <IconCheck size={26} />
         </span>
-        <h3 className="font-heading text-2xl mb-2">Plano ativado!</h3>
+        <h3 className="font-heading text-2xl mb-2">Pedido recebido!</h3>
         <p className="text-(--text-muted)">
-          Seu Plano VIP já está ativo e a agenda é sua. Enviamos os detalhes por e-mail.
+          A Nicoly vai falar com você pelo WhatsApp para combinar o pagamento. Assim que for
+          confirmado, seu Plano VIP é ativado e você recebe a confirmação por e-mail.
         </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={enviar} className="lux-card p-6! md:p-7! mt-8 space-y-5 text-left" aria-label="Ativar Plano VIP pelo site">
-      <h3 className="font-heading text-xl">Ativar meu plano pelo site</h3>
+    <form onSubmit={enviar} className="lux-card p-6! md:p-7! mt-8 space-y-5 text-left" aria-label="Pedir Plano VIP pelo site">
+      <h3 className="font-heading text-xl">Quero o Plano VIP</h3>
 
       <div>
         <label htmlFor="plano-nome" className="block text-xs font-semibold uppercase tracking-wider text-(--text-muted) mb-2">
@@ -134,7 +135,7 @@ export default function PlanosSignup() {
       )}
 
       <button type="submit" disabled={enviando} className="btn btn-primary btn-block py-[16px]!">
-        {enviando ? "Ativando..." : "Confirmar assinatura — R$ 180/mês"}
+        {enviando ? "Enviando..." : "Pedir meu Plano VIP — R$ 180/mês"}
       </button>
     </form>
   );

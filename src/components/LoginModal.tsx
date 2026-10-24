@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useModal } from "@/lib/use-modal";
 
 type Modo = "entrar" | "criar";
 
@@ -85,11 +86,13 @@ export default function LoginModal() {
     setMsg(null);
   }
 
+  useModal(aberto, () => setAberto(false));
+
   if (!aberto) return null;
 
   return (
     <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && fechar()}>
-      <div className="modal-container">
+      <div className="modal-container" role="dialog" aria-modal="true" aria-label="Entrar na sua conta">
         <button className="modal-close" onClick={fechar} aria-label="Fechar">
           &times;
         </button>
