@@ -1,11 +1,15 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { IconHeart } from "@/components/icons";
 import LoginModal from "@/components/LoginModal";
+import BookingModal from "@/components/BookingModal";
+import MobileCTA from "@/components/MobileCTA";
+import NovidadesPopup from "@/components/NovidadesPopup";
 import { supabase } from "@/lib/supabase";
-import { ADMIN_EMAILS_SET } from "@/lib/admin-emails";
+import { isAdminEmail } from "@/lib/admin-emails";
+import { syncAuthCookie } from "@/lib/auth-cookie";
 import { capturarCampanha } from "@/lib/rastreio";
 import { AdminAvatar } from "@/components/admin/shared";
 
@@ -30,13 +34,30 @@ export default function Navbar() {
   useEffect(() => {
     capturarCampanha();
     const fn = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", fn);
+    window.addEventListener("scroll", fn, { passive: true });
     return () => window.removeEventListener("scroll", fn);
   }, []);
+
+  // menu mobile: fecha com Esc e trava a rolagem do fundo enquanto aberto
+  useEffect(() => {
+    if (!menuAberto) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuAberto(false);
+    const fechaSeDesktop = () => window.innerWidth >= 1024 && setMenuAberto(false);
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("resize", fechaSeDesktop);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", fechaSeDesktop);
+    };
+  }, [menuAberto]);
 
   useEffect(() => {
     function carregar() {
       supabase.auth.getSession().then(({ data }) => {
+        syncAuthCookie(data.session);
         const u = data.session?.user;
         setUsuario(
           u
@@ -54,7 +75,7 @@ export default function Navbar() {
               }
             : null
         );
-        if (u?.email) boasVindas(u);
+        if (u?.email && data.session) boasVindas(u.email, data.session.access_token);
       });
     }
     carregar();
@@ -62,26 +83,24 @@ export default function Navbar() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  function boasVindas(u: { id?: string; email?: string; user_metadata?: Record<string, string> }) {
-    const chave = `nic_boas_vindas_${u.email}`;
+  function boasVindas(email: string, token: string) {
+    const chave = `nic_boas_vindas_${email}`;
     try {
       if (localStorage.getItem(chave)) return;
       localStorage.setItem(chave, "1");
     } catch {
       return;
     }
+    // o servidor descobre o e-mail pelo token — não aceita destinatário digitado
     void fetch("/api/email/welcome", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nome: u.user_metadata?.nome || u.user_metadata?.full_name || null,
-        email: u.email,
-      }),
+      headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {});
   }
 
   async function sair() {
     await supabase.auth.signOut();
+    syncAuthCookie(null);
     setUsuario(null);
   }
 
@@ -97,12 +116,16 @@ export default function Navbar() {
         }}
       >
       <div className="container-x flex items-center justify-between h-[64px] md:h-[76px]">
-        <Link href="/#inicio" className="flex flex-col items-start shrink-0 leading-none">
-          <span className="font-logo text-[1.55rem] md:text-[1.8rem] tracking-[0.5px] whitespace-nowrap">
-            <span className="logo-shimmer">Nicbeautty</span>
-            <IconHeart size={15} className="inline-block ml-[3px] -mt-[3px] text-(--rose-gold-light)" />
+        <Link
+          href="/#inicio"
+          className="logo-nav group flex flex-col items-start shrink-0 leading-none"
+          aria-label="Nicbeautty — voltar ao início"
+        >
+          <span className="font-logo text-[1.3rem] min-[380px]:text-[1.55rem] md:text-[1.8rem] tracking-[0.5px] whitespace-nowrap">
+            <span className="logo-shimmer logo-entrada">Nicbeautty</span>
+            <IconHeart size={15} className="logo-coracao inline-block ml-[3px] -mt-[3px] text-(--rose-gold-light)" />
           </span>
-          <span className="logo-sub mt-[3px]">- LASH DESIGNER -</span>
+          <span className="logo-sub logo-sub-anim mt-[3px]">- LASH DESIGNER -</span>
         </Link>
 
         <ul className="hidden lg:flex items-center gap-7 text-sm font-medium text-(--text-muted)">
@@ -136,7 +159,7 @@ export default function Navbar() {
                 <AdminAvatar foto={usuario.foto} nome={usuario.nome} size={28} />
                 <span className="hidden lg:inline">Olá, {usuario.nome.split(" ")[0]}</span>
               </Link>
-              {ADMIN_EMAILS_SET.has(usuario.email) && (
+              {isAdminEmail(usuario.email) && (
                 <Link
                   href="/admin"
                   className="hidden lg:inline-block text-sm text-(--text-muted) hover:text-(--rose-gold) transition-colors"
@@ -154,16 +177,17 @@ export default function Navbar() {
           ) : (
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("abrir-login"))}
-              className="btn btn-outline inline-flex py-1.5! px-3.5! text-[0.82rem]!"
+              className="btn btn-outline inline-flex py-1.5! px-3! min-[380px]:px-3.5! text-[0.8rem]! min-h-0!"
             >
               Entrar
             </button>
           )}
           <button
-            aria-label="Menu"
+            aria-label={menuAberto ? "Fechar menu" : "Abrir menu"}
             aria-expanded={menuAberto}
+            aria-controls="menu-mobile"
             onClick={() => setMenuAberto((v) => !v)}
-            className="lg:hidden flex flex-col gap-[4px] p-1.5 -mr-1"
+            className="lg:hidden flex flex-col justify-center items-center gap-[4px] w-11 h-11 -mr-2"
           >
             <span className={`block w-5 h-[2px] bg-(--rose-gold) rounded transition-all ${menuAberto ? "translate-y-[6px] rotate-45" : ""}`} />
             <span className={`block w-5 h-[2px] bg-(--rose-gold) rounded transition-all ${menuAberto ? "opacity-0" : ""}`} />
@@ -174,20 +198,27 @@ export default function Navbar() {
 
       {/* menu mobile */}
       {menuAberto && (
-        <div className="lg:hidden border-t border-(--border-color)" style={{ background: "rgba(10,10,12,0.97)" }}>
-          <ul className="container-x py-4 flex flex-col gap-4 text-sm font-medium">
+        <div
+          id="menu-mobile"
+          className="menu-mobile lg:hidden border-t border-(--border-color) overflow-y-auto"
+          style={{
+            background: "rgba(10,10,12,0.97)",
+            maxHeight: "calc(100dvh - 64px - env(safe-area-inset-top))",
+          }}
+        >
+          <ul className="container-x py-4 flex flex-col gap-1 text-base font-medium">
             {LINKS.map((l) => (
               <li key={l.href}>
                 <Link
                   href={l.href}
                   onClick={() => setMenuAberto(false)}
-                  className="block py-1 text-(--text-main) hover:text-(--rose-gold)"
+                  className="block py-3 border-b border-white/5 text-(--text-main) hover:text-(--rose-gold)"
                 >
                   {l.label}
                 </Link>
               </li>
             ))}
-            <li>
+            <li className="pt-3">
               <button
                 onClick={() => {
                   setMenuAberto(false);
@@ -204,23 +235,23 @@ export default function Navbar() {
                   <Link
                     href="/meus-horarios"
                     onClick={() => setMenuAberto(false)}
-                    className="block py-1 text-(--text-main) hover:text-(--rose-gold)"
+                    className="block py-3 border-b border-white/5 text-(--text-main) hover:text-(--rose-gold)"
                   >
                     Minha Conta
                   </Link>
                 </li>
-                {ADMIN_EMAILS_SET.has(usuario.email) && (
+                {isAdminEmail(usuario.email) && (
                   <li>
                     <Link
                       href="/admin"
                       onClick={() => setMenuAberto(false)}
-                      className="block py-1 text-(--text-main) hover:text-(--rose-gold)"
+                      className="block py-3 border-b border-white/5 text-(--text-main) hover:text-(--rose-gold)"
                     >
                       Painel Admin
                     </Link>
                   </li>
                 )}
-                <li className="flex items-center justify-between text-(--text-muted) text-sm px-1">
+                <li className="flex items-center justify-between text-(--text-muted) text-sm px-1 py-3">
                   <span>Olá, {usuario.nome.split(" ")[0]}</span>
                   <button onClick={sair} className="text-(--rose-gold)">Sair</button>
                 </li>
@@ -243,6 +274,9 @@ export default function Navbar() {
       )}
       </nav>
       <LoginModal />
+      <BookingModal />
+      <MobileCTA />
+      <NovidadesPopup />
     </>
   );
 }

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { imagemOtimizavel } from "@/lib/imagens";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
-import BookingModal from "@/components/BookingModal";
 import { ServiceBookingButton } from "@/components/TriggerButtons";
 import { getServices } from "@/lib/actions";
 import { IconStar, IconClock, IconSparkle, IconRefresh, IconHeart } from "@/components/icons";
@@ -44,8 +44,8 @@ export default async function CatalogoPage() {
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-7">
               {services.map((s) => (
-                <article key={s.id} className={`lux-card overflow-hidden flex flex-col ${s.id === 2 ? "border-(--rose-gold)!" : ""}`}>
-                  {s.id === 2 && (
+                <article key={s.id} className={`lux-card overflow-hidden flex flex-col ${s.destaque ? "border-(--rose-gold)!" : ""}`}>
+                  {s.destaque && (
                     <div
                       className="text-center text-xs font-bold tracking-[2px] uppercase py-2"
                       style={{
@@ -62,6 +62,7 @@ export default async function CatalogoPage() {
                     {s.imagem && (
                       <Image
                         src={s.imagem}
+                        unoptimized={!imagemOtimizavel(s.imagem)}
                         alt={s.nome}
                         width={600}
                         height={450}
@@ -125,7 +126,6 @@ export default async function CatalogoPage() {
       </main>
 
       <Footer />
-      <BookingModal />
     </>
   );
 }

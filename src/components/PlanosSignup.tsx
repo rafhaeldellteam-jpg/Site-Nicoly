@@ -1,32 +1,26 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IconCheck } from "@/components/icons";
 import { createAssinaturaPublic } from "@/lib/actions";
-import { supabase } from "@/lib/supabase";
 
-export default function PlanosSignup() {
-  const [tecnicas, setTecnicas] = useState<string[]>([]);
+/** Formulário do pedido de Plano VIP (etapa 2 da página de planos). */
+export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] }) {
   const [enviando, setEnviando] = useState(false);
   const [ok, setOk] = useState(false);
   const [erro, setErro] = useState("");
   const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", tecnica: "" });
 
-  useEffect(() => {
-    supabase
-      .from("services")
-      .select("nome")
-      .order("ordem", { ascending: true })
-      .then(({ data }) => {
-        if (data) setTecnicas(data.map((s: { nome: string }) => s.nome));
-      });
-  }, []);
-
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setErro("");
     setEnviando(true);
-    const res = await createAssinaturaPublic(form);
+    let res: { ok: boolean; erro?: string };
+    try {
+      res = await createAssinaturaPublic(form);
+    } catch {
+      res = { ok: false, erro: "Sem conexão no momento. Tente novamente." };
+    }
     setEnviando(false);
     if (res.ok) {
       setOk(true);
@@ -45,17 +39,18 @@ export default function PlanosSignup() {
         >
           <IconCheck size={26} />
         </span>
-        <h3 className="font-heading text-2xl mb-2">Plano ativado!</h3>
+        <h3 className="font-heading text-2xl mb-2">Pedido recebido!</h3>
         <p className="text-(--text-muted)">
-          Seu Plano VIP já está ativo e a agenda é sua. Enviamos os detalhes por e-mail.
+          A Nicoly vai falar com você pelo WhatsApp para combinar o pagamento. Assim que for
+          confirmado, seu Plano VIP é ativado e você recebe a confirmação por e-mail.
         </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={enviar} className="lux-card p-6! md:p-7! mt-8 space-y-5 text-left" aria-label="Ativar Plano VIP pelo site">
-      <h3 className="font-heading text-xl">Ativar meu plano pelo site</h3>
+    <form onSubmit={enviar} className="lux-card p-6! md:p-7! mt-6 space-y-5 text-left" aria-label="Pedir Plano VIP pelo site">
+      <h3 className="font-heading text-xl">Seus dados para o Plano VIP</h3>
 
       <div>
         <label htmlFor="plano-nome" className="block text-xs font-semibold uppercase tracking-wider text-(--text-muted) mb-2">
@@ -134,7 +129,7 @@ export default function PlanosSignup() {
       )}
 
       <button type="submit" disabled={enviando} className="btn btn-primary btn-block py-[16px]!">
-        {enviando ? "Ativando..." : "Confirmar assinatura — R$ 180/mês"}
+        {enviando ? "Enviando..." : "Pedir meu Plano VIP — R$ 180/mês"}
       </button>
     </form>
   );

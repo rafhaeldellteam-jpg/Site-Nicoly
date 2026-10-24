@@ -1,8 +1,21 @@
 "use server";
 
 import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { requireAdmin } from "@/lib/admin-auth";
+import { hojeSP, horaAgoraSP } from "@/lib/datas";
+import {
+  DURACAO_PADRAO_MIN,
+  FIM_EXPEDIENTE,
+  HORARIOS,
+  duracaoDoServico,
+  formatarDuracao,
+  horaParaMin,
+  minParaHora,
+  type HorarioGrade,
+} from "@/lib/agenda";
 import { getBusySlots, createCalendarEvent } from "@/lib/google-calendar";
 import { sendNicEmail } from "@/lib/gmail";
 import {
@@ -25,13 +38,18 @@ import type {
 
 /* ================= PÚBLICO ================= */
 
+function ordenarServicos(lista: Service[]): Service[] {
+  return [...lista].sort((a, b) => (a.ordem ?? 999) - (b.ordem ?? 999) || a.id - b.id);
+}
+
+/** Catálogo público: só serviços ativos, na ordem definida no painel. */
 export async function getServices(): Promise<Service[]> {
   const { data, error } = await supabaseAdmin
     .from("services")
     .select("*")
     .order("id", { ascending: true });
   if (error) return [];
-  return data ?? [];
+  return ordenarServicos(((data ?? []) as Service[]).filter((sv) => sv.ativo !== false));
 }
 
 export async function getGaleria(): Promise<GaleriaItem[]> {
@@ -64,46 +82,121 @@ export async function getApprovedFeedbacks(): Promise<Feedback[]> {
   return data ?? [];
 }
 
-const HORARIOS = [
-  "09:00", "10:00", "11:00", "12:00", "13:00",
-  "14:00", "15:00", "16:00", "17:00", "18:00",
-];
+type Intervalo = { ini: number; fim: number; motivo: string };
 
-export async function getAvailableSlots(dateISO: string): Promise<{ slots: string[] }> {
-  const [apptsRes, blockedRes, busyCal] = await Promise.all([
+function sobrepoe(ini: number, fim: number, lista: Intervalo[]): Intervalo | undefined {
+  return lista.find((b) => ini < b.fim && fim > b.ini);
+}
+
+/**
+ * Monta a grade de horários de um dia.
+ * Cada horário volta como livre (verde), ocupado (cinza) ou nao_cabe
+ * (vermelho claro: está vago, mas o serviço escolhido não termina antes do
+ * próximo compromisso ou do fim do expediente).
+ */
+export async function getAvailableSlots(
+  dateISO: string,
+  serviceId?: number | null
+): Promise<{ slots: string[]; grade: HorarioGrade[]; duracaoMin: number }> {
+  const vazio = { slots: [], grade: [], duracaoMin: DURACAO_PADRAO_MIN };
+  if (typeof dateISO !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return vazio;
+  const hoje = hojeSP();
+  if (dateISO < hoje) {
+    return {
+      ...vazio,
+      grade: HORARIOS.map((hora) => ({ hora, situacao: "ocupado" as const, motivo: "Data já passou" })),
+    };
+  }
+
+  const [apptsRes, blockedRes, busyCal, svcRes] = await Promise.all([
     supabaseAdmin
       .from("appointments")
-      .select("appointment_time")
-      .eq("appointment_date", dateISO)
-      .neq("status", "cancelado"),
-    supabaseAdmin.from("blocked_slots").select("block_time").eq("block_date", dateISO),
+      .select("appointment_time, service_id, status")
+      .eq("appointment_date", dateISO),
+    supabaseAdmin.from("blocked_slots").select("block_time, reason").eq("block_date", dateISO),
     getBusySlots(dateISO),
+    supabaseAdmin.from("services").select("*"),
   ]);
 
-  const ocupados = new Set<string>(
-    (apptsRes.data ?? []).map((a) => a.appointment_time.slice(0, 5))
+  const servicos = new Map<number, Service>(
+    ((svcRes.data ?? []) as Service[]).map((sv) => [sv.id, sv])
   );
+  const duracaoMin = serviceId ? duracaoDoServico(servicos.get(Number(serviceId))) : DURACAO_PADRAO_MIN;
+
+  const ocupados: Intervalo[] = [];
+
+  // agendamentos já marcados ocupam o tempo inteiro do serviço deles
+  for (const a of apptsRes.data ?? []) {
+    if (a.status === "cancelado") continue;
+    const ini = horaParaMin(String(a.appointment_time).slice(0, 5));
+    ocupados.push({ ini, fim: ini + duracaoDoServico(servicos.get(a.service_id)), motivo: "Já reservado" });
+  }
+
+  // bloqueios feitos no painel (sem horário = dia todo)
   for (const b of blockedRes.data ?? []) {
-    if (!b.block_time) return { slots: [] };
-    ocupados.add(b.block_time.slice(0, 5));
-  }
-
-  // horários ocupados no Google Agenda da Nicbeautty também ficam indisponíveis
-  for (const busy of busyCal) {
-    const ini = new Date(busy.start).getTime();
-    const fim = new Date(busy.end).getTime();
-    for (const h of HORARIOS) {
-      const slotIni = new Date(`${dateISO}T${h}:00-03:00`).getTime();
-      const slotFim = slotIni + 60 * 60 * 1000;
-      if (slotIni < fim && slotFim > ini) ocupados.add(h);
+    if (!b.block_time) {
+      const motivo = b.reason ? `Fechado: ${b.reason}` : "Agenda fechada neste dia";
+      return {
+        slots: [],
+        duracaoMin,
+        grade: HORARIOS.map((hora) => ({ hora, situacao: "ocupado" as const, motivo })),
+      };
     }
+    const ini = horaParaMin(String(b.block_time).slice(0, 5));
+    ocupados.push({ ini, fim: ini + 60, motivo: "Horário indisponível" });
   }
 
-  return { slots: HORARIOS.filter((h) => !ocupados.has(h)) };
+  // compromissos do Google Agenda da Nicbeautty
+  const inicioDia = new Date(`${dateISO}T00:00:00-03:00`).getTime();
+  for (const busy of busyCal) {
+    const ini = Math.floor((new Date(busy.start).getTime() - inicioDia) / 60000);
+    const fim = Math.ceil((new Date(busy.end).getTime() - inicioDia) / 60000);
+    if (Number.isFinite(ini) && Number.isFinite(fim) && fim > 0 && ini < 24 * 60)
+      ocupados.push({ ini, fim, motivo: "Horário indisponível" });
+  }
+
+  const agora = dateISO === hoje ? horaParaMin(horaAgoraSP()) : -1;
+  const fimExpediente = horaParaMin(FIM_EXPEDIENTE);
+
+  const grade: HorarioGrade[] = HORARIOS.map((hora) => {
+    const ini = horaParaMin(hora);
+    if (ini <= agora) return { hora, situacao: "ocupado", motivo: "Horário já passou" };
+
+    const conflitoInicio = sobrepoe(ini, ini + 60, ocupados);
+    if (conflitoInicio) return { hora, situacao: "ocupado", motivo: conflitoInicio.motivo };
+
+    const fim = ini + duracaoMin;
+    if (fim > fimExpediente)
+      return {
+        hora,
+        situacao: "nao_cabe",
+        motivo: `Este serviço leva ${formatarDuracao(duracaoMin)} e passaria do fim do expediente (${FIM_EXPEDIENTE.replace(":00", "h")}).`,
+      };
+    const conflito = sobrepoe(ini, fim, ocupados);
+    if (conflito) {
+      const proximo = ocupados
+        .filter((o) => o.ini >= ini)
+        .reduce((min, o) => Math.min(min, o.ini), Infinity);
+      return {
+        hora,
+        situacao: "nao_cabe",
+        motivo: `Este serviço leva ${formatarDuracao(duracaoMin)} e não termina antes do próximo horário ocupado${
+          Number.isFinite(proximo) ? ` (${minParaHora(proximo)})` : ""
+        }.`,
+      };
+    }
+    return { hora, situacao: "livre" };
+  });
+
+  return { slots: grade.filter((g) => g.situacao === "livre").map((g) => g.hora), grade, duracaoMin };
 }
 
 function validarTelefone(tel: string): boolean {
   return /^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$/.test(tel.trim());
+}
+
+function validarEmail(email: string): boolean {
+  return email.length <= 120 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 export async function createAppointment(input: {
@@ -114,49 +207,57 @@ export async function createAppointment(input: {
   data: string;
   horario: string;
 }): Promise<{ ok: boolean; erro?: string }> {
-  const ip = input.telefone || "anon";
-  if (!rateLimit(`apt:${ip}`, 5, 10 * 60 * 1000))
+  const ip = await clientIp();
+  if (!(await rateLimit(`apt:${ip}`, 5, 10 * 60 * 1000)))
     return { ok: false, erro: "Muitas tentativas. Aguarde alguns minutos." };
 
-  const nome = input.nome.trim();
-  const telefone = input.telefone.trim();
+  const nome = String(input.nome ?? "").trim();
+  const telefone = String(input.telefone ?? "").trim();
+  const emailCliente = String(input.email ?? "").trim().toLowerCase() || null;
   if (nome.length < 3 || nome.length > 80) return { ok: false, erro: "Nome inválido." };
   if (!validarTelefone(telefone)) return { ok: false, erro: "Telefone inválido." };
+  if (emailCliente && !validarEmail(emailCliente)) return { ok: false, erro: "E-mail inválido." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data)) return { ok: false, erro: "Data inválida." };
-  if (!HORARIOS.includes(input.horario)) return { ok: false, erro: "Horário inválido." };
-  if (new Date(input.data + "T23:59:59") < new Date())
-    return { ok: false, erro: "Escolha uma data futura." };
-
-  const hoje = new Date().toISOString().split("T")[0];
-  if (input.data < hoje) return { ok: false, erro: "Escolha uma data futura." };
-
-  const { slots } = await getAvailableSlots(input.data);
-  if (!slots.includes(input.horario))
-    return { ok: false, erro: "Este horário acabou de ser preenchido. Escolha outro." };
+  if (!(HORARIOS as readonly string[]).includes(input.horario)) return { ok: false, erro: "Horário inválido." };
+  if (input.data < hojeSP()) return { ok: false, erro: "Escolha uma data futura." };
+  if (input.data > hojeSP(120)) return { ok: false, erro: "Agendamentos abertos para os próximos 4 meses." };
 
   const { data: svc } = await supabaseAdmin
     .from("services")
-    .select("nome, duracao")
-    .eq("id", input.serviceId)
+    .select("*")
+    .eq("id", Number(input.serviceId))
     .single();
+  if (!svc || (svc as Service).ativo === false) return { ok: false, erro: "Serviço inválido." };
+
+  const { grade } = await getAvailableSlots(input.data, Number(input.serviceId));
+  const escolhido = grade.find((g) => g.hora === input.horario);
+  if (!escolhido || escolhido.situacao === "ocupado")
+    return { ok: false, erro: "Este horário acabou de ser preenchido. Escolha outro." };
+  if (escolhido.situacao === "nao_cabe")
+    return { ok: false, erro: escolhido.motivo ?? "Este serviço não cabe neste horário. Escolha outro." };
 
   const { error } = await supabaseAdmin.from("appointments").insert({
     client_name: nome,
     client_phone: telefone,
-    client_email: input.email?.trim() || null,
+    client_email: emailCliente,
     service_id: input.serviceId,
     appointment_date: input.data,
     appointment_time: input.horario,
     status: "confirmado",
   });
-  if (error) return { ok: false, erro: "Erro ao agendar. Tente novamente." };
+  if (error) {
+    // 23505 = índice único: outra pessoa reservou o mesmo horário ao mesmo tempo
+    if (error.code === "23505")
+      return { ok: false, erro: "Este horário acabou de ser preenchido. Escolha outro." };
+    return { ok: false, erro: "Erro ao agendar. Tente novamente." };
+  }
 
   const servicoNome = svc?.nome ?? "Atendimento";
-  const duracaoMin = Math.max(30, Number(svc?.duracao ?? 60) || 60);
+  const duracaoMin = duracaoDoServico(svc as Service);
   const emailData = {
     nome,
     telefone,
-    email: input.email?.trim() || null,
+    email: emailCliente,
     servico: servicoNome,
     data: input.data,
     horario: input.horario,
@@ -206,19 +307,26 @@ export async function createFeedback(input: {
   comentario?: string;
   fotosUrls?: string[];
 }): Promise<{ ok: boolean; erro?: string }> {
-  if (!rateLimit(`fb:${input.nome}`, 3, 30 * 60 * 1000))
+  const ip = await clientIp();
+  if (!(await rateLimit(`fb:${ip}`, 3, 30 * 60 * 1000)))
     return { ok: false, erro: "Muitos envios. Aguarde um pouco." };
 
-  const nome = input.nome.trim();
+  const nome = String(input.nome ?? "").trim();
   if (nome.length < 2 || nome.length > 60) return { ok: false, erro: "Nome inválido." };
   const estrelas = Math.min(5, Math.max(1, Math.round(input.estrelas)));
   if (estrelas < 1) return { ok: false, erro: "Escolha as estrelas." };
   if ((input.comentario ?? "").length > 500) return { ok: false, erro: "Comentário muito longo." };
-  const urls = (input.fotosUrls ?? []).slice(0, 5);
+  // só aceita fotos que foram enviadas para o nosso próprio bucket
+  const prefixo = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/feedbacks/`;
+  const urls = (Array.isArray(input.fotosUrls) ? input.fotosUrls : [])
+    .filter((u) => typeof u === "string" && u.startsWith(prefixo))
+    .slice(0, 5);
+  const instagram = String(input.instagram ?? "").trim().replace(/^@/, "").slice(0, 40);
+  if (instagram && !/^[\w.]+$/.test(instagram)) return { ok: false, erro: "Instagram inválido." };
 
   const { error } = await supabaseAdmin.from("feedbacks").insert({
     nome,
-    instagram: input.instagram?.trim() || null,
+    instagram: instagram || null,
     estrelas,
     comentario: input.comentario?.trim() || null,
     imagens: urls,
@@ -229,6 +337,10 @@ export async function createFeedback(input: {
 }
 
 export async function uploadFeedbackPhoto(file: File): Promise<{ url?: string; erro?: string }> {
+  const ip = await clientIp();
+  if (!(await rateLimit(`fbfoto:${ip}`, 10, 60 * 60 * 1000)))
+    return { erro: "Muitas fotos enviadas. Aguarde um pouco." };
+  if (!(file instanceof File)) return { erro: "Arquivo inválido." };
   if (file.size > 5 * 1024 * 1024) return { erro: "Foto maior que 5MB." };
   if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return { erro: "Formato inválido." };
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
@@ -245,20 +357,108 @@ export async function uploadFeedbackPhoto(file: File): Promise<{ url?: string; e
 /* ================= ADMIN ================= */
 
 export async function adminGetAllServices(): Promise<Service[]> {
-  return getServices();
+  await requireAdmin();
+  const { data, error } = await supabaseAdmin
+    .from("services")
+    .select("*")
+    .order("id", { ascending: true });
+  if (error) return [];
+  return ordenarServicos((data ?? []) as Service[]);
 }
 
-export async function adminSaveService(service: Service): Promise<{ ok: boolean; erro?: string }> {
-  const { error } = await supabaseAdmin.from("services").upsert(service, { onConflict: "id" });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+/** Atualiza as páginas que mostram o catálogo, para a mudança aparecer na hora. */
+function atualizarPaginasPublicas(): void {
+  try {
+    revalidatePath("/");
+    revalidatePath("/catalogo");
+    revalidatePath("/planos");
+  } catch {
+    /* fora de uma requisição — ignora */
+  }
+}
+
+/** Resposta padrão das ações do painel que mudam algo visível no site. */
+function resultado(error: { message: string } | null): { ok: boolean; erro?: string } {
+  if (error) return { ok: false, erro: error.message };
+  atualizarPaginasPublicas();
+  return { ok: true };
+}
+
+const COLUNAS_NOVAS_SERVICO = ["duracao_min", "ativo", "destaque", "ordem"] as const;
+
+export async function adminSaveService(
+  service: Partial<Service>
+): Promise<{ ok: boolean; erro?: string; id?: number }> {
+  await requireAdmin();
+
+  const nome = String(service.nome ?? "").trim();
+  if (nome.length < 2) return { ok: false, erro: "Informe o nome do serviço." };
+  if (nome.length > 80) return { ok: false, erro: "Nome muito longo (máx. 80 caracteres)." };
+
+  const preco =
+    service.preco === null || service.preco === undefined || String(service.preco).trim() === ""
+      ? null
+      : Number(String(service.preco).replace(",", "."));
+  if (preco !== null && (!Number.isFinite(preco) || preco < 0 || preco > 100000))
+    return { ok: false, erro: "Preço inválido." };
+
+  const duracaoMin = service.duracao_min ? Math.round(Number(service.duracao_min)) : null;
+  if (duracaoMin !== null && (!Number.isFinite(duracaoMin) || duracaoMin < 10 || duracaoMin > 600))
+    return { ok: false, erro: "Duração inválida (entre 10 min e 10h)." };
+
+  const imagem = service.imagem ? String(service.imagem).trim() : null;
+  if (imagem && !/^https:\/\//.test(imagem)) return { ok: false, erro: "A imagem precisa ser um link https." };
+
+  const manutencao = (Array.isArray(service.manutencao) ? service.manutencao : [])
+    .map((m) => ({ valor: String(m?.valor ?? "").trim().slice(0, 40), prazo: String(m?.prazo ?? "").trim().slice(0, 40) }))
+    .filter((m) => m.valor)
+    .slice(0, 6);
+
+  const registro: Record<string, unknown> = {
+    nome,
+    descricao: String(service.descricao ?? "").trim().slice(0, 600) || null,
+    duracao: String(service.duracao ?? "").trim().slice(0, 40) || (duracaoMin ? formatarDuracao(duracaoMin) : null),
+    aplicacao: String(service.aplicacao ?? "").trim().slice(0, 120) || null,
+    manutencao,
+    imagem,
+    textobotao: String(service.textobotao ?? "").trim().slice(0, 40) || null,
+    preco,
+    duracao_min: duracaoMin,
+    ativo: service.ativo !== false,
+    destaque: service.destaque === true,
+    ordem: Number.isFinite(Number(service.ordem)) ? Math.round(Number(service.ordem)) : 0,
+  };
+
+  const id = service.id && Number(service.id) > 0 ? Number(service.id) : null;
+
+  const gravar = (dados: Record<string, unknown>) =>
+    id
+      ? supabaseAdmin.from("services").update(dados).eq("id", id).select("id").single()
+      : supabaseAdmin.from("services").insert(dados).select("id").single();
+
+  let { data, error } = await gravar(registro);
+  // banco ainda sem as colunas novas (sql-painel-v2.sql não rodado): salva o básico
+  if (error && COLUNAS_NOVAS_SERVICO.some((c) => error!.message.includes(c))) {
+    const basico = { ...registro };
+    for (const c of COLUNAS_NOVAS_SERVICO) delete basico[c];
+    ({ data, error } = await gravar(basico));
+  }
+  if (error) return { ok: false, erro: "Não foi possível salvar: " + error.message };
+
+  atualizarPaginasPublicas();
+  return { ok: true, id: (data as { id: number } | null)?.id ?? id ?? undefined };
 }
 
 export async function adminDeleteService(id: number): Promise<{ ok: boolean; erro?: string }> {
-  const { error } = await supabaseAdmin.from("services").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  await requireAdmin();
+  const { error } = await supabaseAdmin.from("services").delete().eq("id", Number(id));
+  if (error) return { ok: false, erro: error.message };
+  atualizarPaginasPublicas();
+  return { ok: true };
 }
 
 export async function adminGetFeedbacks(): Promise<Feedback[]> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("feedbacks")
     .select("*")
@@ -271,19 +471,22 @@ export async function adminSetFeedbackAprovado(
   id: number,
   aprovado: boolean
 ): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   const { error } = await supabaseAdmin
     .from("feedbacks")
     .update({ aprovado })
     .eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminDeleteFeedback(id: number): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   const { error } = await supabaseAdmin.from("feedbacks").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminGetAppointments(): Promise<(Appointment & { servico_nome: string | null })[]> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("appointments")
     .select("*, services(nome)")
@@ -303,6 +506,7 @@ export async function adminSetAppointmentStatus(
   id: string,
   status: string
 ): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   if (!["confirmado", "cancelado", "concluido"].includes(status))
     return { ok: false, erro: "Status inválido." };
   const { error } = await supabaseAdmin
@@ -315,7 +519,8 @@ export async function adminSetAppointmentStatus(
 export async function adminGetBlockedSlots(): Promise<
   { id: string; block_date: string; block_time: string | null; reason: string | null }[]
 > {
-  const hoje = new Date().toISOString().split("T")[0];
+  await requireAdmin();
+  const hoje = hojeSP();
   const { data, error } = await supabaseAdmin
     .from("blocked_slots")
     .select("id, block_date, block_time, reason")
@@ -328,23 +533,43 @@ export async function adminGetBlockedSlots(): Promise<
 export async function adminAddBlockedSlot(
   data: string,
   horario: string | null,
-  motivo: string
-): Promise<{ ok: boolean; erro?: string }> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { ok: false, erro: "Data inválida." };
-  const { error } = await supabaseAdmin.from("blocked_slots").insert({
-    block_date: data,
-    block_time: horario,
-    reason: motivo.trim() || null,
-  });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  motivo: string,
+  ate?: string | null
+): Promise<{ ok: boolean; erro?: string; dias?: number }> {
+  await requireAdmin();
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(data)) return { ok: false, erro: "Data inválida." };
+  if (horario && !(HORARIOS as readonly string[]).includes(horario))
+    return { ok: false, erro: "Escolha um dos horários da agenda." };
+
+  // período (ex.: férias): um bloqueio de dia inteiro para cada data
+  const fim = ate && re.test(ate) ? ate : data;
+  if (fim < data) return { ok: false, erro: "A data final precisa ser depois da inicial." };
+  const datas: string[] = [];
+  for (let d = new Date(`${data}T12:00:00Z`); ; d = new Date(d.getTime() + 86400000)) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > fim) break;
+    datas.push(iso);
+    if (datas.length > 120) return { ok: false, erro: "Período muito longo (máx. 120 dias)." };
+  }
+
+  const linhas = datas.map((d) => ({
+    block_date: d,
+    block_time: datas.length > 1 ? null : horario,
+    reason: String(motivo ?? "").trim().slice(0, 120) || null,
+  }));
+  const { error } = await supabaseAdmin.from("blocked_slots").insert(linhas);
+  return error ? { ok: false, erro: error.message } : { ok: true, dias: datas.length };
 }
 
 export async function adminRemoveBlockedSlot(id: string): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   const { error } = await supabaseAdmin.from("blocked_slots").delete().eq("id", id);
   return error ? { ok: false, erro: error.message } : { ok: true };
 }
 
 export async function uploadServiceImage(file: File): Promise<{ url?: string; erro?: string }> {
+  await requireAdmin();
   if (file.size > 8 * 1024 * 1024) return { erro: "Imagem maior que 8MB." };
   if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return { erro: "Formato inválido." };
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
@@ -361,6 +586,7 @@ export async function uploadServiceImage(file: File): Promise<{ url?: string; er
 /* ================= GALERIA ================= */
 
 export async function adminGetGaleria(): Promise<GaleriaItem[]> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("galeria")
     .select("*")
@@ -371,6 +597,7 @@ export async function adminGetGaleria(): Promise<GaleriaItem[]> {
 }
 
 export async function adminSaveGaleria(item: GaleriaItem): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   if (!item.titulo?.trim()) return { ok: false, erro: "Título obrigatório." };
   if (!item.imagem) return { ok: false, erro: "Envie uma imagem." };
   const registro = {
@@ -381,15 +608,17 @@ export async function adminSaveGaleria(item: GaleriaItem): Promise<{ ok: boolean
     ordem: item.ordem ?? 0,
   };
   const { error } = await supabaseAdmin.from("galeria").upsert(registro, { onConflict: "id" });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminDeleteGaleria(id: number): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   const { error } = await supabaseAdmin.from("galeria").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function uploadGaleriaImagem(file: File): Promise<{ url?: string; erro?: string }> {
+  await requireAdmin();
   if (file.size > 8 * 1024 * 1024) return { erro: "Imagem maior que 8MB." };
   if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return { erro: "Formato inválido." };
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
@@ -406,6 +635,7 @@ export async function uploadGaleriaImagem(file: File): Promise<{ url?: string; e
 /* ================= FUNCIONÁRIOS ================= */
 
 export async function adminGetFuncionarios(): Promise<Funcionario[]> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("funcionarios")
     .select("*")
@@ -418,6 +648,7 @@ export async function adminGetFuncionarios(): Promise<Funcionario[]> {
 export async function adminSaveFuncionario(
   f: Funcionario
 ): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   if (!f.nome?.trim()) return { ok: false, erro: "Nome obrigatório." };
   const registro = {
     ...(f.id ? { id: f.id } : {}),
@@ -429,17 +660,19 @@ export async function adminSaveFuncionario(
     ordem: f.ordem ?? 0,
   };
   const { error } = await supabaseAdmin.from("funcionarios").upsert(registro, { onConflict: "id" });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminDeleteFuncionario(id: number): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   const { error } = await supabaseAdmin.from("funcionarios").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function uploadFuncionarioFoto(
   file: File
 ): Promise<{ url?: string; erro?: string }> {
+  await requireAdmin();
   if (file.size > 5 * 1024 * 1024) return { erro: "Foto maior que 5MB." };
   if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) return { erro: "Formato inválido." };
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
@@ -456,6 +689,7 @@ export async function uploadFuncionarioFoto(
 /* ================= PLANOS VIP ================= */
 
 export async function adminGetAssinaturas(): Promise<Assinatura[]> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("planos_assinaturas")
     .select("*")
@@ -469,6 +703,7 @@ export async function adminGetAssinaturas(): Promise<Assinatura[]> {
 export async function adminSaveAssinatura(
   a: Assinatura
 ): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   if (!a.cliente_nome?.trim()) return { ok: false, erro: "Nome do cliente obrigatório." };
   const registro = {
     ...(a.id ? { id: a.id } : {}),
@@ -476,7 +711,7 @@ export async function adminSaveAssinatura(
     cliente_whatsapp: a.cliente_whatsapp?.trim() || null,
     tecnica: a.tecnica?.trim() || null,
     valor_mensal: a.valor_mensal ?? 180,
-    inicio: a.inicio || new Date().toISOString().split("T")[0],
+    inicio: a.inicio || hojeSP(),
     status: a.status || "ativo",
   };
   const emailCliente = a.cliente_email?.trim() || null;
@@ -548,16 +783,48 @@ export async function adminSetAssinaturaStatus(
   id: number,
   status: string
 ): Promise<{ ok: boolean; erro?: string }> {
-  if (!["ativo", "pausado", "cancelado"].includes(status))
+  await requireAdmin();
+  if (!["pendente", "ativo", "pausado", "cancelado"].includes(status))
     return { ok: false, erro: "Status inválido." };
+
+  const { data: anterior } = await supabaseAdmin
+    .from("planos_assinaturas")
+    .select("*")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabaseAdmin
     .from("planos_assinaturas")
     .update({ status })
     .eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  if (error) return { ok: false, erro: error.message };
+
+  // plano feito pelo site e confirmado agora pela Nicoly → avisa a cliente
+  const row = (anterior ?? null) as Record<string, unknown> | null;
+  const emailCliente = (row?.cliente_email as string | null | undefined)?.trim();
+  if (row && row.status === "pendente" && status === "ativo" && emailCliente) {
+    after(async () => {
+      try {
+        await sendNicEmail(
+          emailCliente,
+          "Seu Plano VIP Nicbeautty foi ativado!",
+          buildPlanActivatedEmail({
+            nome: String(row.cliente_nome ?? ""),
+            tecnica: (row.tecnica as string | null) ?? null,
+            valorMensal: Number(row.valor_mensal ?? 180),
+            inicio: String(row.inicio ?? hojeSP()),
+          })
+        );
+      } catch (err) {
+        console.error("E-mail cliente (ativação de plano):", err);
+      }
+    });
+  }
+  return { ok: true };
 }
 
 export async function adminDeleteAssinatura(id: number): Promise<{ ok: boolean; erro?: string }> {
+  await requireAdmin();
   const { error } = await supabaseAdmin.from("planos_assinaturas").delete().eq("id", id);
   return error ? { ok: false, erro: error.message } : { ok: true };
 }
@@ -565,6 +832,7 @@ export async function adminDeleteAssinatura(id: number): Promise<{ ok: boolean; 
 /* ================= CLIENTES (contas do site) ================= */
 
 export async function adminListClientes(): Promise<ClienteInfo[]> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin.auth.admin.listUsers({ perPage: 500 });
   if (error) return [];
   return (data.users ?? []).map((u) => {
@@ -586,10 +854,11 @@ export async function adminListClientes(): Promise<ClienteInfo[]> {
 /* ================= DASHBOARD + HISTÓRICO ================= */
 
 export async function adminDashboard(): Promise<DashboardData> {
-  const hoje = new Date().toISOString().split("T")[0];
-  const em7 = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  await requireAdmin();
+  const hoje = hojeSP();
+  const em7 = hojeSP(7);
 
-  const [agHoje, ag7d, pendentes, assinaturas, concluidos, clientes, proximos] =
+  const [agHoje, ag7d, pendentes, assinaturas, concluidos, clientes, proximos, planosPend] =
     await Promise.all([
       supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }).eq("appointment_date", hoje).neq("status", "cancelado"),
       supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }).gte("appointment_date", hoje).lte("appointment_date", em7).neq("status", "cancelado"),
@@ -605,6 +874,7 @@ export async function adminDashboard(): Promise<DashboardData> {
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true })
         .limit(8),
+      supabaseAdmin.from("planos_assinaturas").select("id", { count: "exact", head: true }).eq("status", "pendente"),
     ]);
 
   const proximosRaw = (proximos.data ?? []) as unknown as Record<string, unknown>[];
@@ -618,6 +888,7 @@ export async function adminDashboard(): Promise<DashboardData> {
     avaliacoes_pendentes: pendentes.count ?? 0,
     assinaturas_ativas: assinaturas.count ?? 0,
     concluidos_total: concluidos.count ?? 0,
+    planos_pendentes: planosPend.count ?? 0,
     proximos: proximosRaw.map((a) => ({
       ...(a as unknown as Appointment),
       servico_nome:
@@ -631,7 +902,8 @@ export async function adminDashboard(): Promise<DashboardData> {
 export async function adminGetHistorico(): Promise<
   (Appointment & { servico_nome: string | null })[]
 > {
-  const hoje = new Date().toISOString().split("T")[0];
+  await requireAdmin();
+  const hoje = hojeSP();
   const { data, error } = await supabaseAdmin
     .from("appointments")
     .select("*, services(nome)")
@@ -682,41 +954,41 @@ export async function createAssinaturaPublic(input: {
   email?: string;
   tecnica?: string;
 }): Promise<{ ok: boolean; erro?: string }> {
-  if (!rateLimit(`plano:${input.whatsapp || input.nome}`, 3, 30 * 60 * 1000))
+  const ip = await clientIp();
+  if (!(await rateLimit(`plano:${ip}`, 3, 30 * 60 * 1000)))
     return { ok: false, erro: "Muitas tentativas. Aguarde alguns minutos." };
 
-  const nome = input.nome.trim();
-  const whatsapp = input.whatsapp.trim();
-  const email = input.email?.trim() || null;
-  const tecnica = input.tecnica?.trim() || null;
+  const nome = String(input.nome ?? "").trim();
+  const whatsapp = String(input.whatsapp ?? "").trim();
+  const email = String(input.email ?? "").trim().toLowerCase() || null;
+  const tecnica = String(input.tecnica ?? "").trim().slice(0, 60) || null;
   if (nome.length < 3 || nome.length > 80) return { ok: false, erro: "Nome inválido." };
   if (!validarTelefone(whatsapp)) return { ok: false, erro: "WhatsApp inválido." };
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return { ok: false, erro: "E-mail inválido." };
+  if (email && !validarEmail(email)) return { ok: false, erro: "E-mail inválido." };
 
   const registro = {
     cliente_nome: nome,
     cliente_whatsapp: whatsapp,
     tecnica,
     valor_mensal: 180,
-    inicio: new Date().toISOString().split("T")[0],
-    status: "ativo",
+    inicio: hojeSP(),
+    // fica pendente até a Nicoly confirmar o pagamento no painel
+    status: "pendente",
   };
 
-  let { error } = await supabaseAdmin.from("planos_assinaturas").upsert(
-    { ...registro, ...(email ? { cliente_email: email } : {}) },
-    { onConflict: "id" }
-  );
+  let { error } = await supabaseAdmin
+    .from("planos_assinaturas")
+    .insert({ ...registro, ...(email ? { cliente_email: email } : {}) });
   if (error && /cliente_email/i.test(error.message)) {
     ({ error } = await supabaseAdmin.from("planos_assinaturas").insert(registro));
   }
-  if (error) return { ok: false, erro: "Erro ao ativar o plano. Tente novamente." };
+  if (error) return { ok: false, erro: "Erro ao enviar o pedido. Tente novamente." };
 
   after(async () => {
     try {
       await createCalendarEvent({
-        summary: `Plano VIP — ${nome} (site)`,
-        description: `Plano VIP ativado pelo site.\nCliente: ${nome}\nWhatsApp: ${whatsapp}\nTécnica: ${tecnica ?? "-"}\nValor mensal: R$ 180`,
+        summary: `Pedido de Plano VIP — ${nome} (site)`,
+        description: `Pedido de Plano VIP feito pelo site (aguardando confirmação).\nCliente: ${nome}\nWhatsApp: ${whatsapp}\nTécnica: ${tecnica ?? "-"}\nValor mensal: R$ 180`,
         date: registro.inicio,
         time: "09:00",
         durationMinutes: 30,
@@ -727,7 +999,7 @@ export async function createAssinaturaPublic(input: {
     try {
       await sendNicEmail(
         process.env.GMAIL_USER || "nicbeautty@gmail.com",
-        `Nova assinatura VIP: ${nome}`,
+        `Pedido de Plano VIP: ${nome} (confirmar no painel)`,
         buildAssinaturaSalonEmail({
           nome,
           whatsapp,
@@ -735,21 +1007,11 @@ export async function createAssinaturaPublic(input: {
           tecnica,
           valorMensal: 180,
           inicio: registro.inicio,
+          pendente: true,
         })
       );
     } catch (err) {
       console.error("E-mail salão (assinatura site):", err);
-    }
-    if (email) {
-      try {
-        await sendNicEmail(
-          email,
-          "Seu Plano VIP Nicbeautty foi ativado!",
-          buildPlanActivatedEmail({ nome, tecnica, valorMensal: 180, inicio: registro.inicio })
-        );
-      } catch (err) {
-        console.error("E-mail cliente (assinatura site):", err);
-      }
     }
   });
   return { ok: true };
@@ -773,6 +1035,7 @@ export async function proximaRenovacao(
 }
 
 export async function adminSendLembreteAssinatura(id: number): Promise<{ ok: boolean; msg?: string }> {
+  await requireAdmin();
   const { data, error } = await supabaseAdmin
     .from("planos_assinaturas")
     .select("*")

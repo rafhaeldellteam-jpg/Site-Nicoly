@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/admin", "/api"],
       },
     ],
-    sitemap: "https://nicbeautty-novo.vercel.app/sitemap.xml",
+    sitemap: "https://nicbeautty.vercel.app/sitemap.xml",
   };
 }

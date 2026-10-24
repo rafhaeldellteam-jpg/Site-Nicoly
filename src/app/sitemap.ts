@@ -2,7 +2,7 @@
 import { getAllSlugs } from "@/lib/marketing-actions";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = "https://nicbeautty-novo.vercel.app";
+  const base = "https://nicbeautty.vercel.app";
   const slugs = await getAllSlugs();
   const blogPosts = slugs.map((slug) => ({
     url: `${base}/blog/${slug}`,

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cinzel_Decorative, Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import PWARegister from "@/components/PWARegister";
+import { ENDERECO, MAPS_URL } from "@/lib/endereco";
 import "./globals.css";
 
 const cinzel = Cinzel_Decorative({
@@ -23,7 +24,7 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
-const SITE_URL = "https://nicbeautty-novo.vercel.app";
+const SITE_URL = "https://nicbeautty.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -92,8 +93,12 @@ export default function RootLayout({
     image: `${SITE_URL}/icons/icon-512.png`,
     telephone: "+55-11-93213-9081",
     priceRange: "R$$",
+    hasMap: MAPS_URL,
+    geo: { "@type": "GeoCoordinates", latitude: ENDERECO.lat, longitude: ENDERECO.lng },
     address: {
       "@type": "PostalAddress",
+      streetAddress: ENDERECO.rua,
+      addressNeighborhood: "Jardim Paulistano",
       addressLocality: "São Paulo",
       addressRegion: "SP",
       addressCountry: "BR",
