@@ -9,7 +9,8 @@ import FeedbackModal from "@/components/FeedbackModal";
 import FeedbackList from "@/components/FeedbackList";
 import ShareButtons from "@/components/ShareButtons";
 import NewsletterForm from "@/components/NewsletterForm";
-import { getApprovedFeedbacks, getGaleria } from "@/lib/actions";
+import { getApprovedFeedbacks, getFuncionarios, getGaleria } from "@/lib/actions";
+import { imagemOtimizavel } from "@/lib/imagens";
 import LinkWhatsapp from "@/components/LinkWhatsapp";
 import { BookingButton, FeedbackButton } from "@/components/TriggerButtons";
 import { IconSparkle, IconChat, WhatsAppIcon, InstagramIcon, GoogleMapsIcon } from "@/components/icons";
@@ -62,7 +63,12 @@ const GOOGLE_REVIEW_URL = GOOGLE_PLACE_ID
 export const revalidate = 60;
 
 export default async function Home() {
-  const [feedbacks, galeriaDb] = await Promise.all([getApprovedFeedbacks(), getGaleria()]);
+  const [feedbacks, galeriaDb, equipeDb] = await Promise.all([
+    getApprovedFeedbacks(),
+    getGaleria(),
+    getFuncionarios(),
+  ]);
+  const equipe = equipeDb.filter((f) => f.ativo !== false);
   const galeria = galeriaDb.length
     ? galeriaDb.map((g) => ({
         src: g.imagem,
@@ -130,6 +136,40 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* ===== EQUIPE (cadastrada no painel → Equipe) ===== */}
+        {equipe.length > 0 && (
+          <section id="equipe" className="section pt-0! reveal">
+            <div className="container-x text-center">
+              <span className="section-subtitle">Quem cuida de você</span>
+              <h2 className="section-title">Nossa equipe</h2>
+              <div className="flex flex-wrap justify-center gap-5 mt-10">
+                {equipe.map((f) => (
+                  <article key={f.id} className="lux-card p-6 w-full sm:w-[300px] text-center">
+                    {f.foto ? (
+                      <Image
+                        src={f.foto}
+                        alt={f.nome}
+                        width={112}
+                        height={112}
+                        loading="lazy"
+                        unoptimized={!imagemOtimizavel(f.foto)}
+                        className="w-28 h-28 mx-auto rounded-full object-cover border-2 border-(--border-color-strong)"
+                      />
+                    ) : (
+                      <span className="w-28 h-28 mx-auto rounded-full flex items-center justify-center font-heading text-4xl text-(--rose-gold) border-2 border-(--border-color-strong) bg-(--bg-tertiary)">
+                        {f.nome.charAt(0)}
+                      </span>
+                    )}
+                    <h3 className="font-heading text-2xl text-(--rose-gold-light) mt-4">{f.nome}</h3>
+                    {f.especialidade && <p className="text-xs uppercase tracking-[2px] text-(--rose-gold) mt-1">{f.especialidade}</p>}
+                    {f.bio && <p className="text-sm text-(--text-muted) mt-3 leading-relaxed">{f.bio}</p>}
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ===== GALERIA ===== */}
         <section id="galeria" className="section section-alt reveal">
           <div className="container-x">
@@ -143,6 +183,7 @@ export default async function Home() {
                   <div className="overflow-hidden aspect-square">
                     <Image
                       src={g.src}
+                      unoptimized={!imagemOtimizavel(g.src)}
                       alt={g.alt}
                       width={500}
                       height={500}

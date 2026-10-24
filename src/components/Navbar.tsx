@@ -6,6 +6,7 @@ import { IconHeart } from "@/components/icons";
 import LoginModal from "@/components/LoginModal";
 import BookingModal from "@/components/BookingModal";
 import MobileCTA from "@/components/MobileCTA";
+import NovidadesPopup from "@/components/NovidadesPopup";
 import { supabase } from "@/lib/supabase";
 import { isAdminEmail } from "@/lib/admin-emails";
 import { syncAuthCookie } from "@/lib/auth-cookie";
@@ -275,6 +276,7 @@ export default function Navbar() {
       <LoginModal />
       <BookingModal />
       <MobileCTA />
+      <NovidadesPopup />
     </>
   );
 }

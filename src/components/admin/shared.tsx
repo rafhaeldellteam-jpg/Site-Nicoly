@@ -1,33 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import type { ReactNode } from "react";
-
-export function AdminIcon({
-  children,
-  size = 19,
-}: {
-  children: ReactNode;
-  size?: number;
-}) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="shrink-0"
-    >
-      {children}
-    </svg>
-  );
-}
-
 export function AdminAvatar({
   foto,
   nome,
@@ -62,36 +34,6 @@ export function AdminAvatar({
         alt={nome}
         className="absolute inset-0 w-full! h-full! object-cover"
       />
-    </div>
-  );
-}
-
-export function LogoSite({ size = 46 }: { size?: number }) {
-  return (
-    <div
-      className="relative shrink-0 rounded-xl overflow-hidden border border-(--border-color)"
-      style={{ width: size, height: size, background: "#fff" }}
-    >
-      <Image
-        src="/images/logo-email.jpg"
-        alt="Nicbeauty"
-        fill
-        sizes={`${size}px`}
-        className="object-cover"
-        unoptimized
-      />
-    </div>
-  );
-}
-
-export function Vazio({ tabela }: { tabela: string }) {
-  return (
-    <div className="lux-card p-8 text-center max-w-xl mx-auto">
-      <p className="text-(--text-muted)">
-        As tabelas do painel ainda não existem no banco. Rode o arquivo{" "}
-        <code className="text-(--rose-gold)">sql-painel-nicbeauty.sql</code> no SQL Editor do
-        Supabase ({tabela}) e recarregue esta página.
-      </p>
     </div>
   );
 }

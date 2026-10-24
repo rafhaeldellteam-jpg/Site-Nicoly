@@ -5,6 +5,7 @@ import { buildWhatsAppLink } from "@/lib/supabase";
 import { rastrearCliqueWhatsapp } from "@/lib/rastreio";
 import { useModal } from "@/lib/use-modal";
 import type { Service } from "@/lib/types";
+import { duracaoDoServico, formatarDuracao, type HorarioGrade } from "@/lib/agenda";
 import { IconSparkle, IconHeart, WhatsAppIcon } from "@/components/icons";
 
 type Etapa = "form" | "sucesso";
@@ -33,7 +34,9 @@ export default function BookingModal() {
   const [services, setServices] = useState<Service[]>([]);
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [data, setData] = useState(() => isoLocal(new Date()));
-  const [slots, setSlots] = useState<string[] | null>(null);
+  const [grade, setGrade] = useState<HorarioGrade[] | null>(null);
+  const [duracaoMin, setDuracaoMin] = useState(60);
+  const [dica, setDica] = useState("");
   const [slot, setSlot] = useState<string | null>(null);
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -102,26 +105,29 @@ export default function BookingModal() {
     };
   }, [aberto]);
 
+  // a grade depende do dia e do serviço (o tempo do serviço decide o que "cabe")
   const buscarSlots = useCallback(async () => {
     if (!data) return;
     setCarregando(true);
     setSlot(null);
-    setSlots(null);
+    setDica("");
+    setGrade(null);
     try {
       const { getAvailableSlots } = await import("@/lib/actions");
-      const { slots } = await getAvailableSlots(data);
-      setSlots(slots);
+      const r = await getAvailableSlots(data, serviceId);
+      setGrade(r.grade);
+      setDuracaoMin(r.duracaoMin);
     } catch {
-      setSlots([]);
+      setGrade([]);
       setErro("Não foi possível ler a agenda. Verifique sua conexão.");
     } finally {
       setCarregando(false);
     }
-  }, [data]);
+  }, [data, serviceId]);
 
   useEffect(() => {
-    if (aberto && data) buscarSlots();
-  }, [aberto, data, buscarSlots]);
+    if (aberto && data && serviceId) buscarSlots();
+  }, [aberto, data, serviceId, buscarSlots]);
 
   const fechar = useCallback(() => {
     setAberto(false);
@@ -240,8 +246,8 @@ export default function BookingModal() {
                   {services.length === 0 && <option>Carregando...</option>}
                   {services.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.nome}
-                      {s.aplicacao ? ` — ${s.aplicacao}` : ""}
+                      {s.nome} — {formatarDuracao(duracaoDoServico(s))}
+                      {s.preco != null ? ` · R$ ${Number(s.preco).toFixed(2).replace(".", ",")}` : ""}
                     </option>
                   ))}
                 </select>
@@ -279,32 +285,57 @@ export default function BookingModal() {
               </div>
 
               <div className="form-group">
-                <label>Horários disponíveis *</label>
-                {!slots || carregando ? (
+                <label>Horários *</label>
+                <ul className="slot-legenda" aria-label="Legenda dos horários">
+                  <li><i className="livre" /> Disponível</li>
+                  <li><i className="ocupado" /> Indisponível</li>
+                  <li><i className="nao_cabe" /> Não cabe o serviço ({formatarDuracao(duracaoMin)})</li>
+                </ul>
+                {!grade || carregando ? (
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" aria-busy="true" aria-label="Lendo a agenda">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <span key={i} className="slot-skeleton" />
                     ))}
                   </div>
-                ) : slots.length === 0 ? (
-                  <p className="text-(--text-muted) text-sm py-3 text-center w-full">
-                    Nenhum horário livre nesta data. Escolha outro dia{" "}
-                    <IconHeart size={13} className="inline-block -mt-[2px] text-(--rose-gold)" />
-                  </p>
                 ) : (
-                  <div className="grid grid-cols-3 min-[400px]:grid-cols-4 sm:grid-cols-5 gap-2">
-                    {slots.map((h) => (
-                      <button
-                        key={h}
-                        type="button"
-                        aria-pressed={slot === h}
-                        className={`slot-btn disp ${slot === h ? "sel" : ""}`}
-                        onClick={() => setSlot(h)}
-                      >
-                        {h}
-                      </button>
-                    ))}
-                  </div>
+                  <>
+                    <div className="grid grid-cols-3 min-[400px]:grid-cols-4 sm:grid-cols-5 gap-2">
+                      {grade.map((g) => {
+                        const livre = g.situacao === "livre";
+                        return (
+                          <button
+                            key={g.hora}
+                            type="button"
+                            aria-pressed={slot === g.hora}
+                            aria-disabled={!livre}
+                            title={g.motivo}
+                            className={`slot-btn s-${g.situacao} ${slot === g.hora ? "sel" : ""}`}
+                            onClick={() => {
+                              if (livre) {
+                                setSlot(g.hora);
+                                setDica("");
+                              } else {
+                                setDica(`${g.hora}: ${g.motivo ?? "Horário indisponível."}`);
+                              }
+                            }}
+                          >
+                            {g.hora}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {dica && (
+                      <p className="slot-dica" role="status">
+                        {dica}
+                      </p>
+                    )}
+                    {grade.length > 0 && !grade.some((g) => g.situacao === "livre") && (
+                      <p className="text-(--text-muted) text-sm pt-3 text-center w-full">
+                        Nenhum horário livre para este serviço nesta data. Escolha outro dia{" "}
+                        <IconHeart size={13} className="inline-block -mt-[2px] text-(--rose-gold)" />
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 

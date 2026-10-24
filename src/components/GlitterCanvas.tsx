@@ -27,6 +27,13 @@ export default function GlitterCanvas() {
 
     let particles: Particle[] = [];
     let raf = 0;
+    let rodando = false;
+
+    // quem pediu menos movimento no sistema não recebe a animação
+    const reduzir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // menos partículas e sem sombra no celular (economiza bateria)
+    const celular = window.innerWidth < 768;
+    const quantidade = reduzir ? 0 : celular ? 32 : 60;
 
     const resize = () => {
       if (canvas.parentElement) {
@@ -51,8 +58,10 @@ export default function GlitterCanvas() {
       ctx.save();
       ctx.globalAlpha = Math.max(0, Math.min(1, p.opacity));
       ctx.fillStyle = p.color;
-      ctx.shadowColor = p.color;
-      ctx.shadowBlur = 10;
+      if (!celular) {
+        ctx.shadowColor = p.color;
+        ctx.shadowBlur = 8;
+      }
 
       if (p.isStar) {
         const s = p.size;
@@ -85,20 +94,42 @@ export default function GlitterCanvas() {
         if (p.y > canvas.height + 10) reset(p, false);
         draw(p);
       }
+      if (rodando) raf = requestAnimationFrame(animate);
+    };
+
+    const iniciar = () => {
+      if (rodando || quantidade === 0) return;
+      rodando = true;
       raf = requestAnimationFrame(animate);
+    };
+    const parar = () => {
+      rodando = false;
+      cancelAnimationFrame(raf);
     };
 
     resize();
     window.addEventListener("resize", resize);
-    particles = Array.from({ length: 70 }, () => {
+    particles = Array.from({ length: quantidade }, () => {
       const p = {} as Particle;
       reset(p, true);
       return p;
     });
-    animate();
+
+    // só anima quando o topo está visível e a aba está aberta
+    let visivel = true;
+    const io = new IntersectionObserver(([e]) => {
+      visivel = e.isIntersecting;
+      if (visivel && document.visibilityState === "visible") iniciar();
+      else parar();
+    });
+    io.observe(canvas);
+    const aoTrocarAba = () => (document.visibilityState === "visible" && visivel ? iniciar() : parar());
+    document.addEventListener("visibilitychange", aoTrocarAba);
 
     return () => {
-      cancelAnimationFrame(raf);
+      parar();
+      io.disconnect();
+      document.removeEventListener("visibilitychange", aoTrocarAba);
       window.removeEventListener("resize", resize);
     };
   }, []);

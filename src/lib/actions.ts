@@ -1,10 +1,21 @@
 "use server";
 
 import { after } from "next/server";
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { requireAdmin } from "@/lib/admin-auth";
 import { hojeSP, horaAgoraSP } from "@/lib/datas";
+import {
+  DURACAO_PADRAO_MIN,
+  FIM_EXPEDIENTE,
+  HORARIOS,
+  duracaoDoServico,
+  formatarDuracao,
+  horaParaMin,
+  minParaHora,
+  type HorarioGrade,
+} from "@/lib/agenda";
 import { getBusySlots, createCalendarEvent } from "@/lib/google-calendar";
 import { sendNicEmail } from "@/lib/gmail";
 import {
@@ -27,13 +38,18 @@ import type {
 
 /* ================= PÚBLICO ================= */
 
+function ordenarServicos(lista: Service[]): Service[] {
+  return [...lista].sort((a, b) => (a.ordem ?? 999) - (b.ordem ?? 999) || a.id - b.id);
+}
+
+/** Catálogo público: só serviços ativos, na ordem definida no painel. */
 export async function getServices(): Promise<Service[]> {
   const { data, error } = await supabaseAdmin
     .from("services")
     .select("*")
     .order("id", { ascending: true });
   if (error) return [];
-  return data ?? [];
+  return ordenarServicos(((data ?? []) as Service[]).filter((sv) => sv.ativo !== false));
 }
 
 export async function getGaleria(): Promise<GaleriaItem[]> {
@@ -66,51 +82,113 @@ export async function getApprovedFeedbacks(): Promise<Feedback[]> {
   return data ?? [];
 }
 
-const HORARIOS = [
-  "09:00", "10:00", "11:00", "12:00", "13:00",
-  "14:00", "15:00", "16:00", "17:00", "18:00",
-];
+type Intervalo = { ini: number; fim: number; motivo: string };
 
-export async function getAvailableSlots(dateISO: string): Promise<{ slots: string[] }> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return { slots: [] };
+function sobrepoe(ini: number, fim: number, lista: Intervalo[]): Intervalo | undefined {
+  return lista.find((b) => ini < b.fim && fim > b.ini);
+}
+
+/**
+ * Monta a grade de horários de um dia.
+ * Cada horário volta como livre (verde), ocupado (cinza) ou nao_cabe
+ * (vermelho claro: está vago, mas o serviço escolhido não termina antes do
+ * próximo compromisso ou do fim do expediente).
+ */
+export async function getAvailableSlots(
+  dateISO: string,
+  serviceId?: number | null
+): Promise<{ slots: string[]; grade: HorarioGrade[]; duracaoMin: number }> {
+  const vazio = { slots: [], grade: [], duracaoMin: DURACAO_PADRAO_MIN };
+  if (typeof dateISO !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) return vazio;
   const hoje = hojeSP();
-  if (dateISO < hoje) return { slots: [] };
-  const [apptsRes, blockedRes, busyCal] = await Promise.all([
+  if (dateISO < hoje) {
+    return {
+      ...vazio,
+      grade: HORARIOS.map((hora) => ({ hora, situacao: "ocupado" as const, motivo: "Data já passou" })),
+    };
+  }
+
+  const [apptsRes, blockedRes, busyCal, svcRes] = await Promise.all([
     supabaseAdmin
       .from("appointments")
-      .select("appointment_time")
-      .eq("appointment_date", dateISO)
-      .neq("status", "cancelado"),
-    supabaseAdmin.from("blocked_slots").select("block_time").eq("block_date", dateISO),
+      .select("appointment_time, service_id, status")
+      .eq("appointment_date", dateISO),
+    supabaseAdmin.from("blocked_slots").select("block_time, reason").eq("block_date", dateISO),
     getBusySlots(dateISO),
+    supabaseAdmin.from("services").select("*"),
   ]);
 
-  const ocupados = new Set<string>(
-    (apptsRes.data ?? []).map((a) => a.appointment_time.slice(0, 5))
+  const servicos = new Map<number, Service>(
+    ((svcRes.data ?? []) as Service[]).map((sv) => [sv.id, sv])
   );
+  const duracaoMin = serviceId ? duracaoDoServico(servicos.get(Number(serviceId))) : DURACAO_PADRAO_MIN;
+
+  const ocupados: Intervalo[] = [];
+
+  // agendamentos já marcados ocupam o tempo inteiro do serviço deles
+  for (const a of apptsRes.data ?? []) {
+    if (a.status === "cancelado") continue;
+    const ini = horaParaMin(String(a.appointment_time).slice(0, 5));
+    ocupados.push({ ini, fim: ini + duracaoDoServico(servicos.get(a.service_id)), motivo: "Já reservado" });
+  }
+
+  // bloqueios feitos no painel (sem horário = dia todo)
   for (const b of blockedRes.data ?? []) {
-    if (!b.block_time) return { slots: [] };
-    ocupados.add(b.block_time.slice(0, 5));
-  }
-
-  // horários ocupados no Google Agenda da Nicbeautty também ficam indisponíveis
-  for (const busy of busyCal) {
-    const ini = new Date(busy.start).getTime();
-    const fim = new Date(busy.end).getTime();
-    for (const h of HORARIOS) {
-      const slotIni = new Date(`${dateISO}T${h}:00-03:00`).getTime();
-      const slotFim = slotIni + 60 * 60 * 1000;
-      if (slotIni < fim && slotFim > ini) ocupados.add(h);
+    if (!b.block_time) {
+      const motivo = b.reason ? `Fechado: ${b.reason}` : "Agenda fechada neste dia";
+      return {
+        slots: [],
+        duracaoMin,
+        grade: HORARIOS.map((hora) => ({ hora, situacao: "ocupado" as const, motivo })),
+      };
     }
+    const ini = horaParaMin(String(b.block_time).slice(0, 5));
+    ocupados.push({ ini, fim: ini + 60, motivo: "Horário indisponível" });
   }
 
-  // no dia de hoje, esconde horários que já passaram
-  if (dateISO === hoje) {
-    const agora = horaAgoraSP();
-    for (const h of HORARIOS) if (h <= agora) ocupados.add(h);
+  // compromissos do Google Agenda da Nicbeautty
+  const inicioDia = new Date(`${dateISO}T00:00:00-03:00`).getTime();
+  for (const busy of busyCal) {
+    const ini = Math.floor((new Date(busy.start).getTime() - inicioDia) / 60000);
+    const fim = Math.ceil((new Date(busy.end).getTime() - inicioDia) / 60000);
+    if (Number.isFinite(ini) && Number.isFinite(fim) && fim > 0 && ini < 24 * 60)
+      ocupados.push({ ini, fim, motivo: "Horário indisponível" });
   }
 
-  return { slots: HORARIOS.filter((h) => !ocupados.has(h)) };
+  const agora = dateISO === hoje ? horaParaMin(horaAgoraSP()) : -1;
+  const fimExpediente = horaParaMin(FIM_EXPEDIENTE);
+
+  const grade: HorarioGrade[] = HORARIOS.map((hora) => {
+    const ini = horaParaMin(hora);
+    if (ini <= agora) return { hora, situacao: "ocupado", motivo: "Horário já passou" };
+
+    const conflitoInicio = sobrepoe(ini, ini + 60, ocupados);
+    if (conflitoInicio) return { hora, situacao: "ocupado", motivo: conflitoInicio.motivo };
+
+    const fim = ini + duracaoMin;
+    if (fim > fimExpediente)
+      return {
+        hora,
+        situacao: "nao_cabe",
+        motivo: `Este serviço leva ${formatarDuracao(duracaoMin)} e passaria do fim do expediente (${FIM_EXPEDIENTE.replace(":00", "h")}).`,
+      };
+    const conflito = sobrepoe(ini, fim, ocupados);
+    if (conflito) {
+      const proximo = ocupados
+        .filter((o) => o.ini >= ini)
+        .reduce((min, o) => Math.min(min, o.ini), Infinity);
+      return {
+        hora,
+        situacao: "nao_cabe",
+        motivo: `Este serviço leva ${formatarDuracao(duracaoMin)} e não termina antes do próximo horário ocupado${
+          Number.isFinite(proximo) ? ` (${minParaHora(proximo)})` : ""
+        }.`,
+      };
+    }
+    return { hora, situacao: "livre" };
+  });
+
+  return { slots: grade.filter((g) => g.situacao === "livre").map((g) => g.hora), grade, duracaoMin };
 }
 
 function validarTelefone(tel: string): boolean {
@@ -140,20 +218,23 @@ export async function createAppointment(input: {
   if (!validarTelefone(telefone)) return { ok: false, erro: "Telefone inválido." };
   if (emailCliente && !validarEmail(emailCliente)) return { ok: false, erro: "E-mail inválido." };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.data)) return { ok: false, erro: "Data inválida." };
-  if (!HORARIOS.includes(input.horario)) return { ok: false, erro: "Horário inválido." };
+  if (!(HORARIOS as readonly string[]).includes(input.horario)) return { ok: false, erro: "Horário inválido." };
   if (input.data < hojeSP()) return { ok: false, erro: "Escolha uma data futura." };
   if (input.data > hojeSP(120)) return { ok: false, erro: "Agendamentos abertos para os próximos 4 meses." };
 
-  const { slots } = await getAvailableSlots(input.data);
-  if (!slots.includes(input.horario))
-    return { ok: false, erro: "Este horário acabou de ser preenchido. Escolha outro." };
-
   const { data: svc } = await supabaseAdmin
     .from("services")
-    .select("nome, duracao")
+    .select("*")
     .eq("id", Number(input.serviceId))
     .single();
-  if (!svc) return { ok: false, erro: "Serviço inválido." };
+  if (!svc || (svc as Service).ativo === false) return { ok: false, erro: "Serviço inválido." };
+
+  const { grade } = await getAvailableSlots(input.data, Number(input.serviceId));
+  const escolhido = grade.find((g) => g.hora === input.horario);
+  if (!escolhido || escolhido.situacao === "ocupado")
+    return { ok: false, erro: "Este horário acabou de ser preenchido. Escolha outro." };
+  if (escolhido.situacao === "nao_cabe")
+    return { ok: false, erro: escolhido.motivo ?? "Este serviço não cabe neste horário. Escolha outro." };
 
   const { error } = await supabaseAdmin.from("appointments").insert({
     client_name: nome,
@@ -172,7 +253,7 @@ export async function createAppointment(input: {
   }
 
   const servicoNome = svc?.nome ?? "Atendimento";
-  const duracaoMin = Math.max(30, Number(svc?.duracao ?? 60) || 60);
+  const duracaoMin = duracaoDoServico(svc as Service);
   const emailData = {
     nome,
     telefone,
@@ -277,19 +358,103 @@ export async function uploadFeedbackPhoto(file: File): Promise<{ url?: string; e
 
 export async function adminGetAllServices(): Promise<Service[]> {
   await requireAdmin();
-  return getServices();
+  const { data, error } = await supabaseAdmin
+    .from("services")
+    .select("*")
+    .order("id", { ascending: true });
+  if (error) return [];
+  return ordenarServicos((data ?? []) as Service[]);
 }
 
-export async function adminSaveService(service: Service): Promise<{ ok: boolean; erro?: string }> {
+/** Atualiza as páginas que mostram o catálogo, para a mudança aparecer na hora. */
+function atualizarPaginasPublicas(): void {
+  try {
+    revalidatePath("/");
+    revalidatePath("/catalogo");
+    revalidatePath("/planos");
+  } catch {
+    /* fora de uma requisição — ignora */
+  }
+}
+
+/** Resposta padrão das ações do painel que mudam algo visível no site. */
+function resultado(error: { message: string } | null): { ok: boolean; erro?: string } {
+  if (error) return { ok: false, erro: error.message };
+  atualizarPaginasPublicas();
+  return { ok: true };
+}
+
+const COLUNAS_NOVAS_SERVICO = ["duracao_min", "ativo", "destaque", "ordem"] as const;
+
+export async function adminSaveService(
+  service: Partial<Service>
+): Promise<{ ok: boolean; erro?: string; id?: number }> {
   await requireAdmin();
-  const { error } = await supabaseAdmin.from("services").upsert(service, { onConflict: "id" });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+
+  const nome = String(service.nome ?? "").trim();
+  if (nome.length < 2) return { ok: false, erro: "Informe o nome do serviço." };
+  if (nome.length > 80) return { ok: false, erro: "Nome muito longo (máx. 80 caracteres)." };
+
+  const preco =
+    service.preco === null || service.preco === undefined || String(service.preco).trim() === ""
+      ? null
+      : Number(String(service.preco).replace(",", "."));
+  if (preco !== null && (!Number.isFinite(preco) || preco < 0 || preco > 100000))
+    return { ok: false, erro: "Preço inválido." };
+
+  const duracaoMin = service.duracao_min ? Math.round(Number(service.duracao_min)) : null;
+  if (duracaoMin !== null && (!Number.isFinite(duracaoMin) || duracaoMin < 10 || duracaoMin > 600))
+    return { ok: false, erro: "Duração inválida (entre 10 min e 10h)." };
+
+  const imagem = service.imagem ? String(service.imagem).trim() : null;
+  if (imagem && !/^https:\/\//.test(imagem)) return { ok: false, erro: "A imagem precisa ser um link https." };
+
+  const manutencao = (Array.isArray(service.manutencao) ? service.manutencao : [])
+    .map((m) => ({ valor: String(m?.valor ?? "").trim().slice(0, 40), prazo: String(m?.prazo ?? "").trim().slice(0, 40) }))
+    .filter((m) => m.valor)
+    .slice(0, 6);
+
+  const registro: Record<string, unknown> = {
+    nome,
+    descricao: String(service.descricao ?? "").trim().slice(0, 600) || null,
+    duracao: String(service.duracao ?? "").trim().slice(0, 40) || (duracaoMin ? formatarDuracao(duracaoMin) : null),
+    aplicacao: String(service.aplicacao ?? "").trim().slice(0, 120) || null,
+    manutencao,
+    imagem,
+    textobotao: String(service.textobotao ?? "").trim().slice(0, 40) || null,
+    preco,
+    duracao_min: duracaoMin,
+    ativo: service.ativo !== false,
+    destaque: service.destaque === true,
+    ordem: Number.isFinite(Number(service.ordem)) ? Math.round(Number(service.ordem)) : 0,
+  };
+
+  const id = service.id && Number(service.id) > 0 ? Number(service.id) : null;
+
+  const gravar = (dados: Record<string, unknown>) =>
+    id
+      ? supabaseAdmin.from("services").update(dados).eq("id", id).select("id").single()
+      : supabaseAdmin.from("services").insert(dados).select("id").single();
+
+  let { data, error } = await gravar(registro);
+  // banco ainda sem as colunas novas (sql-painel-v2.sql não rodado): salva o básico
+  if (error && COLUNAS_NOVAS_SERVICO.some((c) => error!.message.includes(c))) {
+    const basico = { ...registro };
+    for (const c of COLUNAS_NOVAS_SERVICO) delete basico[c];
+    ({ data, error } = await gravar(basico));
+  }
+  if (error) return { ok: false, erro: "Não foi possível salvar: " + error.message };
+
+  atualizarPaginasPublicas();
+  return { ok: true, id: (data as { id: number } | null)?.id ?? id ?? undefined };
 }
 
 export async function adminDeleteService(id: number): Promise<{ ok: boolean; erro?: string }> {
   await requireAdmin();
-  const { error } = await supabaseAdmin.from("services").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  const { error } = await supabaseAdmin.from("services").delete().eq("id", Number(id));
+  if (error) return { ok: false, erro: error.message };
+  atualizarPaginasPublicas();
+  return { ok: true };
 }
 
 export async function adminGetFeedbacks(): Promise<Feedback[]> {
@@ -311,13 +476,13 @@ export async function adminSetFeedbackAprovado(
     .from("feedbacks")
     .update({ aprovado })
     .eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminDeleteFeedback(id: number): Promise<{ ok: boolean; erro?: string }> {
   await requireAdmin();
   const { error } = await supabaseAdmin.from("feedbacks").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminGetAppointments(): Promise<(Appointment & { servico_nome: string | null })[]> {
@@ -368,16 +533,33 @@ export async function adminGetBlockedSlots(): Promise<
 export async function adminAddBlockedSlot(
   data: string,
   horario: string | null,
-  motivo: string
-): Promise<{ ok: boolean; erro?: string }> {
+  motivo: string,
+  ate?: string | null
+): Promise<{ ok: boolean; erro?: string; dias?: number }> {
   await requireAdmin();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) return { ok: false, erro: "Data inválida." };
-  const { error } = await supabaseAdmin.from("blocked_slots").insert({
-    block_date: data,
-    block_time: horario,
-    reason: motivo.trim() || null,
-  });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(data)) return { ok: false, erro: "Data inválida." };
+  if (horario && !(HORARIOS as readonly string[]).includes(horario))
+    return { ok: false, erro: "Escolha um dos horários da agenda." };
+
+  // período (ex.: férias): um bloqueio de dia inteiro para cada data
+  const fim = ate && re.test(ate) ? ate : data;
+  if (fim < data) return { ok: false, erro: "A data final precisa ser depois da inicial." };
+  const datas: string[] = [];
+  for (let d = new Date(`${data}T12:00:00Z`); ; d = new Date(d.getTime() + 86400000)) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > fim) break;
+    datas.push(iso);
+    if (datas.length > 120) return { ok: false, erro: "Período muito longo (máx. 120 dias)." };
+  }
+
+  const linhas = datas.map((d) => ({
+    block_date: d,
+    block_time: datas.length > 1 ? null : horario,
+    reason: String(motivo ?? "").trim().slice(0, 120) || null,
+  }));
+  const { error } = await supabaseAdmin.from("blocked_slots").insert(linhas);
+  return error ? { ok: false, erro: error.message } : { ok: true, dias: datas.length };
 }
 
 export async function adminRemoveBlockedSlot(id: string): Promise<{ ok: boolean; erro?: string }> {
@@ -426,13 +608,13 @@ export async function adminSaveGaleria(item: GaleriaItem): Promise<{ ok: boolean
     ordem: item.ordem ?? 0,
   };
   const { error } = await supabaseAdmin.from("galeria").upsert(registro, { onConflict: "id" });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminDeleteGaleria(id: number): Promise<{ ok: boolean; erro?: string }> {
   await requireAdmin();
   const { error } = await supabaseAdmin.from("galeria").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function uploadGaleriaImagem(file: File): Promise<{ url?: string; erro?: string }> {
@@ -478,13 +660,13 @@ export async function adminSaveFuncionario(
     ordem: f.ordem ?? 0,
   };
   const { error } = await supabaseAdmin.from("funcionarios").upsert(registro, { onConflict: "id" });
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function adminDeleteFuncionario(id: number): Promise<{ ok: boolean; erro?: string }> {
   await requireAdmin();
   const { error } = await supabaseAdmin.from("funcionarios").delete().eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  return resultado(error);
 }
 
 export async function uploadFuncionarioFoto(
@@ -676,7 +858,7 @@ export async function adminDashboard(): Promise<DashboardData> {
   const hoje = hojeSP();
   const em7 = hojeSP(7);
 
-  const [agHoje, ag7d, pendentes, assinaturas, concluidos, clientes, proximos] =
+  const [agHoje, ag7d, pendentes, assinaturas, concluidos, clientes, proximos, planosPend] =
     await Promise.all([
       supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }).eq("appointment_date", hoje).neq("status", "cancelado"),
       supabaseAdmin.from("appointments").select("id", { count: "exact", head: true }).gte("appointment_date", hoje).lte("appointment_date", em7).neq("status", "cancelado"),
@@ -692,6 +874,7 @@ export async function adminDashboard(): Promise<DashboardData> {
         .order("appointment_date", { ascending: true })
         .order("appointment_time", { ascending: true })
         .limit(8),
+      supabaseAdmin.from("planos_assinaturas").select("id", { count: "exact", head: true }).eq("status", "pendente"),
     ]);
 
   const proximosRaw = (proximos.data ?? []) as unknown as Record<string, unknown>[];
@@ -705,6 +888,7 @@ export async function adminDashboard(): Promise<DashboardData> {
     avaliacoes_pendentes: pendentes.count ?? 0,
     assinaturas_ativas: assinaturas.count ?? 0,
     concluidos_total: concluidos.count ?? 0,
+    planos_pendentes: planosPend.count ?? 0,
     proximos: proximosRaw.map((a) => ({
       ...(a as unknown as Appointment),
       servico_nome:
