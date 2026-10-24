@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { isAdminEmail } from "@/lib/admin-emails";
 import { syncAuthCookie } from "@/lib/auth-cookie";
 import { AvisosProvider } from "@/components/admin/ui";
+import { AdminAvatar, LogoSite } from "@/components/admin/shared";
 import { ATALHOS_CELULAR, GRUPOS, IconeMenu, MENU, type Aba } from "@/components/admin/navegacao";
 
 /* Cada aba é carregada só quando aberta — o painel abre mais rápido no celular. */
@@ -26,16 +27,32 @@ const AbaMarketing = dynamic(() => import("@/components/admin/abas/Marketing"), 
 
 const ABA_SALVA = "nic_admin_aba";
 
+type Perfil = { nome: string; email: string; foto: string | null };
+
+/** Nome e foto de quem está logada (a foto vem do Google, quando a conta é Google). */
+function perfilDe(user: { email?: string; user_metadata?: Record<string, unknown> } | null | undefined): Perfil | null {
+  if (!user?.email) return null;
+  const m = user.user_metadata ?? {};
+  const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  return {
+    nome: texto(m.nome) ?? texto(m.full_name) ?? texto(m.name) ?? user.email.split("@")[0],
+    email: user.email,
+    foto: texto(m.avatar_url) ?? texto(m.picture),
+  };
+}
+
 export default function AdminPage() {
   const [estado, setEstado] = useState<"carregando" | "login" | "negado" | "ok">("carregando");
   const [erroLogin, setErroLogin] = useState(false);
   const [entrando, setEntrando] = useState(false);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
 
   useEffect(() => {
     function checar() {
       supabase.auth.getSession().then(({ data }) => {
         // o servidor confere este token em todas as ações do painel
         syncAuthCookie(data.session);
+        setPerfil(perfilDe(data.session?.user));
         const email = data.session?.user?.email ?? "";
         if (!email) setEstado("login");
         else if (!isAdminEmail(email)) setEstado("negado");
@@ -58,6 +75,7 @@ export default function AdminPage() {
     setEntrando(false);
     const emailLogado = data.session?.user?.email ?? "";
     syncAuthCookie(data.session);
+    setPerfil(perfilDe(data.session?.user));
     if (!error && !!data.session && isAdminEmail(emailLogado)) {
       setEstado("ok");
       setErroLogin(false);
@@ -122,12 +140,40 @@ export default function AdminPage() {
 
   return (
     <AvisosProvider>
-      <Painel />
+      <Painel perfil={perfil} />
     </AvisosProvider>
   );
 }
 
-function Painel() {
+function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
+  const [perfil, setPerfil] = useState<Perfil | null>(perfilInicial);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
+
+  // troca a foto de perfil da conta logada (vale também para o avatar do site)
+  async function trocarFoto(arquivo: File | undefined) {
+    if (!arquivo || !perfil) return;
+    if (arquivo.size > 5 * 1024 * 1024) {
+      alert("A foto precisa ter até 5MB.");
+      return;
+    }
+    setEnviandoFoto(true);
+    try {
+      const { uploadFuncionarioFoto } = await import("@/lib/actions");
+      const up = await uploadFuncionarioFoto(arquivo);
+      if (!up.url) {
+        alert(up.erro ?? "Não foi possível enviar a foto.");
+        return;
+      }
+      const { error } = await supabase.auth.updateUser({ data: { avatar_url: up.url } });
+      if (error) alert("Não foi possível salvar a foto no perfil.");
+      else setPerfil({ ...perfil, foto: up.url });
+    } catch {
+      alert("Sem conexão no momento. Tente de novo.");
+    } finally {
+      setEnviandoFoto(false);
+    }
+  }
+
   const [aba, setAbaEstado] = useState<Aba>(() => {
     try {
       const salva = sessionStorage.getItem(ABA_SALVA) as Aba | null;
@@ -191,9 +237,7 @@ function Painel() {
       {/* menu lateral (no celular vira gaveta) */}
       <aside className={`adm-menu ${menuAberto ? "aberto" : ""}`} aria-label="Menu do painel">
         <div className="adm-menu-topo">
-          <span className="adm-menu-logo" aria-hidden="true">
-            ♥
-          </span>
+          <LogoSite size={40} />
           <div className="min-w-0">
             <strong className="font-heading text-lg leading-tight block">Nicbeautty</strong>
             <span className="text-[0.62rem] uppercase tracking-[2.5px] text-(--text-muted)">Painel admin</span>
@@ -222,6 +266,30 @@ function Painel() {
           ))}
         </nav>
         <div className="adm-menu-rodape">
+          {perfil && (
+            <div className="adm-perfil">
+              <label className="adm-perfil-foto" title="Trocar foto de perfil">
+                <AdminAvatar foto={perfil.foto} nome={perfil.nome} size={44} />
+                <span aria-hidden="true">{enviandoFoto ? "…" : "✎"}</span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  hidden
+                  disabled={enviandoFoto}
+                  onChange={(e) => {
+                    trocarFoto(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                  aria-label="Trocar foto de perfil"
+                />
+              </label>
+              <div className="min-w-0">
+                <strong className="block truncate text-sm">{perfil.nome}</strong>
+                <span className="block truncate text-xs text-(--text-muted)">{perfil.email}</span>
+                <span className="block text-[0.7rem] text-(--rose-gold)">{enviandoFoto ? "Enviando foto..." : "Toque na foto para trocar"}</span>
+              </div>
+            </div>
+          )}
           <Link href="/" className="adm-menu-item" target="_blank">
             <IconeMenu>
               <>
@@ -257,10 +325,21 @@ function Painel() {
               </>
             </IconeMenu>
           </button>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="font-heading text-xl md:text-2xl truncate">{atual.titulo}</h1>
             <p className="text-xs md:text-sm text-(--text-muted) truncate">{atual.subtitulo}</p>
           </div>
+          {perfil && (
+            <button
+              type="button"
+              className="lg:hidden shrink-0 rounded-full"
+              onClick={() => setMenuAberto(true)}
+              aria-label={`Conta de ${perfil.nome}`}
+              title={perfil.email}
+            >
+              <AdminAvatar foto={perfil.foto} nome={perfil.nome} size={36} />
+            </button>
+          )}
         </header>
 
         <div className="adm-pagina">
