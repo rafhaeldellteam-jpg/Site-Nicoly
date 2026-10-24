@@ -1,32 +1,26 @@
-﻿"use client";
+"use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { IconCheck } from "@/components/icons";
 import { createAssinaturaPublic } from "@/lib/actions";
-import { supabase } from "@/lib/supabase";
 
-export default function PlanosSignup() {
-  const [tecnicas, setTecnicas] = useState<string[]>([]);
+/** Formulário do pedido de Plano VIP (etapa 2 da página de planos). */
+export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] }) {
   const [enviando, setEnviando] = useState(false);
   const [ok, setOk] = useState(false);
   const [erro, setErro] = useState("");
   const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", tecnica: "" });
 
-  useEffect(() => {
-    supabase
-      .from("services")
-      .select("nome")
-      .order("ordem", { ascending: true })
-      .then(({ data }) => {
-        if (data) setTecnicas(data.map((s: { nome: string }) => s.nome));
-      });
-  }, []);
-
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setErro("");
     setEnviando(true);
-    const res = await createAssinaturaPublic(form);
+    let res: { ok: boolean; erro?: string };
+    try {
+      res = await createAssinaturaPublic(form);
+    } catch {
+      res = { ok: false, erro: "Sem conexão no momento. Tente novamente." };
+    }
     setEnviando(false);
     if (res.ok) {
       setOk(true);
@@ -55,8 +49,8 @@ export default function PlanosSignup() {
   }
 
   return (
-    <form onSubmit={enviar} className="lux-card p-6! md:p-7! mt-8 space-y-5 text-left" aria-label="Pedir Plano VIP pelo site">
-      <h3 className="font-heading text-xl">Quero o Plano VIP</h3>
+    <form onSubmit={enviar} className="lux-card p-6! md:p-7! mt-6 space-y-5 text-left" aria-label="Pedir Plano VIP pelo site">
+      <h3 className="font-heading text-xl">Seus dados para o Plano VIP</h3>
 
       <div>
         <label htmlFor="plano-nome" className="block text-xs font-semibold uppercase tracking-wider text-(--text-muted) mb-2">

@@ -11,6 +11,7 @@ import ShareButtons from "@/components/ShareButtons";
 import NewsletterForm from "@/components/NewsletterForm";
 import { getApprovedFeedbacks, getFuncionarios, getGaleria } from "@/lib/actions";
 import { imagemOtimizavel } from "@/lib/imagens";
+import { ENDERECO, MAPS_URL } from "@/lib/endereco";
 import LinkWhatsapp from "@/components/LinkWhatsapp";
 import { BookingButton, FeedbackButton } from "@/components/TriggerButtons";
 import { IconSparkle, IconChat, WhatsAppIcon, InstagramIcon, GoogleMapsIcon } from "@/components/icons";
@@ -302,14 +303,19 @@ export default async function Home() {
                   <span className="text-xs text-(--text-muted)">@nicbeautty</span>
                 </a>
                 <a
-                  href="https://www.google.com/maps/@-23.4894848,-46.717431,3a,75y,26.13h,83.49t/data=!3m7!1e1!3m5!1shuWCOgwrMODMVnxVrojSeg!2e0!6shttps:%2F%2Fstreetviewpixels-pa.googleapis.com%2Fv1%2Fthumbnail%3Fcb_client%3Dmaps_sv.tactile%26w%3D900%26h%3D600%26pitch%3D6.514246348818432%26panoid%3DhuWCOgwrMODMVnxVrojSeg%26yaw%3D26.134152856225604!7i16384!8i8192!18m1!1e1?entry=ttu&g_ep=EgoyMDI2MDcyOS4wIKXMDSoASAFQAw%3D%3D"
+                  href={MAPS_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="lux-card p-6 flex flex-col items-center gap-3 hover:border-(--rose-gold)!"
                 >
                   <GoogleMapsIcon size={26} />
                   <strong>Localização</strong>
-                  <span className="text-xs text-(--text-muted)">Ver no Google Maps</span>
+                  <span className="text-xs text-(--text-muted) leading-snug">
+                    {ENDERECO.rua}
+                    <br />
+                    {ENDERECO.bairro}
+                  </span>
+                  <span className="text-xs text-(--rose-gold)">Ver rota no Google Maps</span>
                 </a>
               </div>
 

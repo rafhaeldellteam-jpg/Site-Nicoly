@@ -1154,3 +1154,127 @@ select.input-lux option { background: var(--bg-secondary); color: var(--text-mai
   padding: 12px 18px calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border-color); background: var(--bg-secondary);
 }
+
+/* =====================================================================
+   PÁGINA DE PLANOS (colunas selecionáveis estilo Netflix + comparação estilo Disney+)
+   ===================================================================== */
+.planos-wrap { max-width: 860px; margin: 0 auto; }
+.planos-etapa { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
+.planos-etapa strong { color: var(--rose-gold); }
+
+.planos-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (min-width: 768px) { .planos-colunas { gap: 18px; } }
+
+.plano-cartao {
+  position: relative;
+  display: flex; flex-direction: column; text-align: left;
+  border-radius: 18px; overflow: hidden; cursor: pointer;
+  background: var(--bg-card); border: 2px solid var(--border-color);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s, box-shadow 0.25s, opacity 0.25s;
+  opacity: 0.72;
+}
+.plano-cartao:hover { opacity: 0.92; }
+.plano-cartao.sel {
+  opacity: 1;
+  border-color: var(--rose-gold);
+  transform: translateY(-4px);
+  box-shadow: 0 18px 44px rgba(216, 163, 125, 0.22);
+}
+.plano-topo {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 18px 14px 20px; min-height: 104px;
+  background: linear-gradient(140deg, #2a2a33 0%, #1d1d24 100%);
+}
+.plano-cartao.vip .plano-topo { background: linear-gradient(140deg, var(--rose-gold-dark) 0%, var(--rose-gold) 55%, var(--rose-gold-light) 100%); }
+.plano-topo strong { font-family: var(--font-heading); font-size: 1.45rem; line-height: 1.05; color: var(--text-main); }
+.plano-cartao.vip .plano-topo strong { color: #14100c; }
+.plano-topo small { font-size: 0.74rem; line-height: 1.3; color: var(--text-muted); }
+.plano-cartao.vip .plano-topo small { color: #3a2a1c; }
+@media (min-width: 768px) {
+  .plano-topo { padding: 24px 22px; min-height: 120px; }
+  .plano-topo strong { font-size: 1.9rem; }
+  .plano-topo small { font-size: 0.85rem; }
+}
+.plano-preco { display: flex; flex-direction: column; padding: 14px; }
+@media (min-width: 768px) { .plano-preco { padding: 18px 22px; } }
+.plano-preco b { font-size: 1.05rem; color: var(--text-main); }
+@media (min-width: 768px) { .plano-preco b { font-size: 1.35rem; } }
+.plano-preco small { font-size: 0.72rem; color: var(--text-muted); }
+.plano-check {
+  position: absolute; top: 10px; right: 10px;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.35); color: #14100c;
+}
+.plano-cartao.sel .plano-check { background: #fff; border-color: #fff; }
+.plano-selo {
+  position: absolute; top: 0; left: 50%; transform: translate(-50%, -50%);
+  z-index: 2; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  padding: 4px 10px; border-radius: 999px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--rose-gold-light); background: #14100c; border: 1px solid var(--rose-gold);
+}
+.plano-cartao.vip { overflow: visible; margin-top: 10px; }
+.plano-cartao.vip .plano-topo { border-radius: 16px 16px 0 0; }
+.planos-colunas .plano-cartao.avulso { margin-top: 10px; }
+
+.planos-economia {
+  margin: 16px 0 0; padding: 12px 14px; border-radius: 14px; text-align: center;
+  font-size: 0.9rem; color: var(--text-muted);
+  background: rgba(123, 216, 143, 0.06); border: 1px solid rgba(123, 216, 143, 0.2);
+  transition: opacity 0.25s;
+  opacity: 0.55;
+}
+.planos-economia.on { opacity: 1; }
+.planos-economia strong { color: #7bd88f; }
+
+.planos-tabela { margin-top: 18px; border-radius: 18px; overflow: hidden; border: 1px solid var(--border-color); background: var(--bg-card); }
+.planos-linha {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--border-color);
+}
+.planos-linha:first-child { border-top: none; }
+.planos-linha > span { padding: 12px 10px; font-size: 0.86rem; text-align: center; transition: background 0.25s, color 0.25s; }
+.planos-linha > span.on { background: rgba(216, 163, 125, 0.09); color: var(--text-main); font-weight: 600; }
+/* no celular o rótulo fica numa faixa própria acima das duas colunas (como no app da Netflix) */
+.planos-rotulo {
+  grid-column: 1 / -1;
+  padding: 10px 12px 0 !important; text-align: left !important;
+  font-size: 0.72rem !important; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--rose-gold) !important; background: none !important;
+}
+.planos-linha.cabecalho > span:not(.planos-rotulo) { font-family: var(--font-heading); font-size: 1.1rem; padding-top: 6px; }
+.planos-linha.cabecalho .planos-rotulo { display: none; }
+@media (min-width: 768px) {
+  .planos-linha { grid-template-columns: 1.3fr 1fr 1fr; }
+  .planos-rotulo { grid-column: auto; padding: 14px 18px !important; align-self: center; text-transform: none; letter-spacing: 0; font-size: 0.9rem !important; color: var(--text-muted) !important; }
+  .planos-linha > span { padding: 14px 18px; font-size: 0.92rem; }
+  .planos-linha.cabecalho .planos-rotulo { display: block; visibility: hidden; }
+}
+
+.planos-continuar { margin-top: 20px; padding-top: 17px !important; padding-bottom: 17px !important; font-size: 1rem !important; }
+
+.planos-faq { margin-top: 44px; }
+.planos-faq details { border-bottom: 1px solid var(--border-color); }
+.planos-faq summary {
+  list-style: none; cursor: pointer; padding: 16px 32px 16px 0; position: relative;
+  font-weight: 600; color: var(--text-main);
+}
+.planos-faq summary::-webkit-details-marker { display: none; }
+.planos-faq summary::after {
+  content: "+"; position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  font-size: 1.4rem; color: var(--rose-gold); transition: transform 0.2s;
+}
+.planos-faq details[open] summary::after { transform: translateY(-50%) rotate(45deg); }
+.planos-faq details p { padding: 0 0 16px; color: var(--text-muted); line-height: 1.6; }
+
+.planos-etapa2 { animation: fadeUp 0.35s ease both; }
+.plano-resumo {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 16px 18px; border-radius: 16px;
+  background: linear-gradient(140deg, rgba(184, 130, 92, 0.25), rgba(240, 203, 176, 0.08));
+  border: 1px solid var(--border-color-strong);
+}
+.plano-resumo strong { display: block; font-family: var(--font-heading); font-size: 1.4rem; }
+.plano-resumo small { color: var(--text-muted); font-size: 0.8rem; }
+.plano-resumo > span { text-align: right; font-weight: 700; color: var(--rose-gold-light); white-space: nowrap; }

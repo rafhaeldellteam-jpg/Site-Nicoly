@@ -1,3 +1,5 @@
+import { ENDERECO_LINHA, MAPS_URL } from "@/lib/endereco";
+
 const BASE = "https://nicbeautty-novo.vercel.app";
 const LOGO = `${BASE}/images/logo-email.jpg`;
 const CHECK = `${BASE}/icons/icon-check.png`;
@@ -173,11 +175,12 @@ export function buildBookingConfirmationEmail(d: BookingEmailData): string {
       { rotulo: "Serviço", valor: d.servico, destaque: true },
       { rotulo: "Data", valor: formatBRDate(d.data) },
       { rotulo: "Horário", valor: d.horario, destaque: true },
-      { rotulo: "Local", valor: "Nicbeautty Studio" },
+      { rotulo: "Local", valor: ENDERECO_LINHA },
     ],
     mensagemExtra: `<p style="color:#a1a1a8;font-size:13px;line-height:1.8;margin:0 0 18px;">
       Chegue com os olhos limpos, sem maquiagem nos cílios.<br>
-      Precisou remarcar? Fale conosco pelo WhatsApp com antecedência.
+      Precisou remarcar? Fale conosco pelo WhatsApp com antecedência.<br>
+      <a href="${MAPS_URL}" style="color:#d8a37d;">Ver rota no Google Maps</a>
     </p>`,
     botao: { texto: "Ver Meu Horário", url: `${BASE}/meus-horarios` },
     rodapeMsg: "Você recebeu este e-mail porque agendou um horário na Nicbeautty.",
