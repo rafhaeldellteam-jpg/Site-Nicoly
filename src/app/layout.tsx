@@ -24,7 +24,7 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
-const SITE_URL = "https://nicbeautty-novo.vercel.app";
+const SITE_URL = "https://nicbeautty.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

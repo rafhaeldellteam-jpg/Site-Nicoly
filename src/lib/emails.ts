@@ -1,6 +1,6 @@
 import { ENDERECO_LINHA, MAPS_URL } from "@/lib/endereco";
 
-const BASE = "https://nicbeautty-novo.vercel.app";
+const BASE = "https://nicbeautty.vercel.app";
 const LOGO = `${BASE}/images/logo-email.jpg`;
 const CHECK = `${BASE}/icons/icon-check.png`;
 
