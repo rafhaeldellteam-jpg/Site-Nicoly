@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { isAdminEmail } from "@/lib/admin-emails";
 import { syncAuthCookie } from "@/lib/auth-cookie";
 import { AvisosProvider } from "@/components/admin/ui";
 import { AdminAvatar, LogoSite } from "@/components/admin/shared";
@@ -26,6 +25,16 @@ const AbaEquipe = dynamic(() => import("@/components/admin/abas/Equipe"), { load
 const AbaMarketing = dynamic(() => import("@/components/admin/abas/Marketing"), { loading: carregando });
 
 const ABA_SALVA = "nic_admin_aba";
+
+/** Pergunta ao servidor se a conta logada está ativa na tabela de administradoras. */
+async function verificarAcesso(): Promise<boolean> {
+  try {
+    const { souAdmin } = await import("@/lib/acesso-actions");
+    return await souAdmin();
+  } catch {
+    return false;
+  }
+}
 
 type Perfil = { nome: string; email: string; foto: string | null };
 
@@ -54,9 +63,12 @@ export default function AdminPage() {
         syncAuthCookie(data.session);
         setPerfil(perfilDe(data.session?.user));
         const email = data.session?.user?.email ?? "";
-        if (!email) setEstado("login");
-        else if (!isAdminEmail(email)) setEstado("negado");
-        else setEstado("ok");
+        if (!email) {
+          setEstado("login");
+          return;
+        }
+        // quem é administradora fica na tabela "administradores" do Supabase
+        verificarAcesso().then((ok) => setEstado(ok ? "ok" : "negado"));
       });
     }
     checar();
@@ -76,12 +88,12 @@ export default function AdminPage() {
     const emailLogado = data.session?.user?.email ?? "";
     syncAuthCookie(data.session);
     setPerfil(perfilDe(data.session?.user));
-    if (!error && !!data.session && isAdminEmail(emailLogado)) {
-      setEstado("ok");
-      setErroLogin(false);
-    } else {
+    if (error || !data.session || !emailLogado) {
       setErroLogin(true);
+      return;
     }
+    setErroLogin(false);
+    setEstado((await verificarAcesso()) ? "ok" : "negado");
   }
 
   if (estado === "carregando")

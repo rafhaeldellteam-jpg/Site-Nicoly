@@ -4,10 +4,29 @@ import { ADMIN_EMAILS } from "@/lib/admin-emails";
 
 const AUTH_COOKIE = "nic_at";
 
-function adminList(): Set<string> {
+function listaReserva(): Set<string> {
   const env = process.env.ADMIN_EMAILS;
   const lista = env ? env.split(",") : [...ADMIN_EMAILS];
   return new Set(lista.map((e) => e.trim().toLowerCase()).filter(Boolean));
+}
+
+/**
+ * Confere se o e-mail é de uma administradora ATIVA na tabela
+ * public.administradores do Supabase (Table Editor → administradores).
+ * Se a tabela ainda não existir, usa a lista de reserva do código para
+ * ninguém ficar trancado para fora do painel.
+ */
+export async function emailEhAdmin(email: string | null | undefined): Promise<boolean> {
+  const e = email?.trim().toLowerCase();
+  if (!e) return false;
+  const { data, error } = await supabaseAdmin
+    .from("administradores")
+    .select("email")
+    .eq("email", e)
+    .eq("ativo", true)
+    .limit(1);
+  if (error) return listaReserva().has(e);
+  return (data ?? []).length > 0;
 }
 
 /**
@@ -21,7 +40,7 @@ export async function requireAdmin(): Promise<{ email: string }> {
 
   const { data, error } = await supabaseAdmin.auth.getUser(token);
   const email = data.user?.email?.toLowerCase();
-  if (error || !email || !adminList().has(email)) throw new Error("Não autorizado.");
+  if (error || !email || !(await emailEhAdmin(email))) throw new Error("Não autorizado.");
   return { email };
 }
 
