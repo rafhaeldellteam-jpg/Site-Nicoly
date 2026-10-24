@@ -14,6 +14,9 @@ const HOSTS_SUPABASE = new Set(
 /** Logo da marca guardada no próprio site (não depende do Supabase). */
 export const LOGO_MARCA = "/icons/icon-512.png";
 
+/** Foto da Nicoly guardada no próprio site (topo da página e "Nossa equipe"). */
+export const FOTO_NICOLY = "/images/nicoly.webp";
+
 /**
  * O otimizador de imagens do Next só aceita fotos do Supabase do salão
  * (e arquivos do próprio site). Se a administradora colar um link de outro
