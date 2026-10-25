@@ -11,6 +11,7 @@ import ShareButtons from "@/components/ShareButtons";
 import { getApprovedFeedbacks, getFuncionarios, getGaleria } from "@/lib/acoes/publico";
 import { FOTO_NICOLY, LOGO_MARCA, imagemOtimizavel } from "@/lib/imagens";
 import { ENDERECO, MAPS_URL } from "@/lib/endereco";
+import { getConfiguracao } from "@/lib/acoes/configuracoes";
 import LinkWhatsapp from "@/components/LinkWhatsapp";
 import { BookingButton, FeedbackButton } from "@/components/TriggerButtons";
 import { IconSparkle, IconChat, WhatsAppIcon, InstagramIcon, GoogleMapsIcon } from "@/components/icons";
@@ -55,19 +56,23 @@ const DIFERENCIAIS = [
 
 // Para abrir direto a tela de avaliação, defina NEXT_PUBLIC_GOOGLE_PLACE_ID na Vercel
 // (o ID do perfil da Nicbeautty no Google). Sem ele, abre a busca do perfil no Google.
+// O link vem do painel (Avaliações → Avaliar no Google). Sem ele, usa o ID do perfil
+// (NEXT_PUBLIC_GOOGLE_PLACE_ID) ou, por último, a busca da Nicbeautty no Google.
 const GOOGLE_PLACE_ID = process.env.NEXT_PUBLIC_GOOGLE_PLACE_ID;
-const GOOGLE_REVIEW_URL = GOOGLE_PLACE_ID
+const GOOGLE_REVIEW_PADRAO = GOOGLE_PLACE_ID
   ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(GOOGLE_PLACE_ID)}`
   : "https://www.google.com/search?q=Nicbeautty+Lash+Designer+avalia%C3%A7%C3%B5es";
 
 export const revalidate = 60;
 
 export default async function Home() {
-  const [feedbacks, galeriaDb, equipeDb] = await Promise.all([
+  const [feedbacks, galeriaDb, equipeDb, linkGoogle] = await Promise.all([
     getApprovedFeedbacks(),
     getGaleria(),
     getFuncionarios(),
+    getConfiguracao("google_avaliacao_url"),
   ]);
+  const GOOGLE_REVIEW_URL = linkGoogle || GOOGLE_REVIEW_PADRAO;
   // foto cadastrada no painel tem prioridade; sem foto, a Nicoly usa a foto oficial e as demais a logo
   const equipe = equipeDb
     .filter((f) => f.ativo !== false)

@@ -23,6 +23,8 @@ const AbaNovidades = dynamic(() => import("@/components/admin/abas/Novidades"), 
 const AbaGaleria = dynamic(() => import("@/components/admin/abas/Galeria"), { loading: carregando });
 const AbaEquipe = dynamic(() => import("@/components/admin/abas/Equipe"), { loading: carregando });
 const AbaMarketing = dynamic(() => import("@/components/admin/abas/Marketing"), { loading: carregando });
+const AbaFinanceiro = dynamic(() => import("@/components/admin/abas/Financeiro"), { loading: carregando });
+const AbaCliques = dynamic(() => import("@/components/admin/abas/Cliques"), { loading: carregando });
 
 const ABA_SALVA = "nic_admin_aba";
 
@@ -367,6 +369,8 @@ function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
           {aba === "galeria" && <AbaGaleria />}
           {aba === "funcionarios" && <AbaEquipe />}
           {aba === "marketing" && <AbaMarketing />}
+          {aba === "financeiro" && <AbaFinanceiro irPara={irPara} />}
+          {aba === "cliques" && <AbaCliques />}
         </div>
       </main>
 

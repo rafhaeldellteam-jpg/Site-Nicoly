@@ -46,7 +46,7 @@ export function useAvisos() {
 export function useAcao() {
   const avisar = useAvisos();
   return useCallback(
-    async <T extends { ok: boolean; erro?: string }>(
+    async <T extends { ok: boolean; erro?: string | undefined }>(
       fn: () => Promise<T>,
       msgOk?: string
     ): Promise<T | null> => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Feedback } from "@/lib/types";
 import { IconCheck, IconStar } from "@/components/icons";
 import { Badge, BarraAba, Carregando, ErroCarregar, ListaVazia, Secao, useAcao, useDados } from "../ui";
@@ -11,6 +11,23 @@ export default function AbaAvaliacoes() {
     return adminGetFeedbacks();
   });
   const acao = useAcao();
+  const [linkGoogle, setLinkGoogle] = useState<string | null>(null);
+  const [salvandoLink, setSalvandoLink] = useState(false);
+
+  useEffect(() => {
+    import("@/lib/acoes/configuracoes")
+      .then(({ getConfiguracao }) => getConfiguracao("google_avaliacao_url"))
+      .then((v) => setLinkGoogle(v ?? ""))
+      .catch(() => setLinkGoogle(""));
+  }, []);
+
+  async function salvarLink() {
+    if (linkGoogle === null) return;
+    setSalvandoLink(true);
+    const { adminSetConfiguracao } = await import("@/lib/acoes/configuracoes");
+    await acao(() => adminSetConfiguracao("google_avaliacao_url", linkGoogle), linkGoogle ? "Link do Google salvo. O botão do site já usa ele." : "Link removido.");
+    setSalvandoLink(false);
+  }
   const [foto, setFoto] = useState<string | null>(null);
 
   if (erro) return <ErroCarregar aoTentar={recarregar} />;
@@ -75,6 +92,28 @@ export default function AbaAvaliacoes() {
 
   return (
     <div className="space-y-6">
+      <Secao titulo="Avaliar no Google" descricao="Link do botão “Avaliar no Google” da página inicial">
+        <div className="lux-card p-4 md:p-5 space-y-3">
+          <p className="text-sm text-(--text-muted)">
+            No celular, abra o app <strong>Google Maps</strong> ou o <strong>Perfil da Empresa no Google</strong> → “Pedir avaliações” → copie o
+            link e cole aqui. Enquanto estiver vazio, o botão abre a busca da Nicbeautty no Google.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              className="input-lux py-2!"
+              placeholder="https://g.page/r/..."
+              value={linkGoogle ?? ""}
+              disabled={linkGoogle === null}
+              onChange={(e) => setLinkGoogle(e.target.value)}
+              aria-label="Link de avaliação do Google"
+            />
+            <button className="btn btn-primary py-2.5! px-5! text-[0.85rem]! shrink-0" onClick={salvarLink} disabled={salvandoLink || linkGoogle === null}>
+              {salvandoLink ? "Salvando..." : "Salvar link"}
+            </button>
+          </div>
+        </div>
+      </Secao>
+
       <BarraAba resumo={noAr.length ? `${noAr.length} no site · média ${media.toFixed(1).replace(".", ",")} estrelas` : "Nenhuma avaliação publicada ainda"} />
 
       <Secao titulo="Aguardando aprovação" descricao="Só aparecem na página inicial depois de aprovadas.">

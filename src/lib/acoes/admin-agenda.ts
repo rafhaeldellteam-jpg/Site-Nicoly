@@ -5,6 +5,7 @@
 import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { deleteCalendarEvent } from "@/lib/google-calendar";
+import { enviarLembretesDeAmanha } from "@/lib/lembretes";
 import { requireAdmin } from "@/lib/admin-auth";
 import { hojeSP } from "@/lib/datas";
 import { HORARIOS } from "@/lib/agenda";
@@ -147,4 +148,21 @@ export async function adminDashboard(): Promise<DashboardData> {
     planos_pendentes: planosPend.count ?? 0,
     proximos: comNomeDoServico(proximosRaw),
   };
+}
+
+/** Botão do painel: envia agora os lembretes dos horários de amanhã. */
+export async function adminEnviarLembretesAgora(): Promise<{ ok: boolean; erro?: string; msg?: string }> {
+  await requireAdmin();
+  try {
+    const r = await enviarLembretesDeAmanha();
+    if (r.atendimentos === 0) return { ok: true, msg: "Nenhum atendimento marcado para amanhã." };
+    return {
+      ok: true,
+      msg: `${r.lembretes} ${r.lembretes === 1 ? "lembrete enviado" : "lembretes enviados"} para amanhã (${r.atendimentos} ${
+        r.atendimentos === 1 ? "atendimento" : "atendimentos"
+      }). Quem já tinha recebido não recebe de novo.`,
+    };
+  } catch {
+    return { ok: false, erro: "Não foi possível enviar os lembretes agora." };
+  }
 }
