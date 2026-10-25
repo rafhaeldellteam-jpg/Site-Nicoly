@@ -38,20 +38,6 @@ export function AdminAvatar({
   );
 }
 
-export function renovacaoInfo(inicio: string | null): { renovacao: Date; dias: number } {
-  const base = inicio ? new Date(`${inicio}T12:00:00`) : new Date();
-  const hoje = new Date();
-  let ciclo = Math.max(0, Math.floor((hoje.getTime() - base.getTime()) / (30 * 86400000)));
-  let renovacao = new Date(base.getTime() + (ciclo + 1) * 30 * 86400000);
-  if (renovacao < hoje) {
-    ciclo += 1;
-    renovacao = new Date(base.getTime() + (ciclo + 1) * 30 * 86400000);
-  }
-  return {
-    renovacao,
-    dias: Math.max(0, Math.ceil((renovacao.getTime() - hoje.getTime()) / 86400000)),
-  };
-}
 
 /** Logo do estúdio (mesma dos e-mails), usada no topo do menu do painel. */
 export function LogoSite({ size = 40 }: { size?: number }) {

@@ -9,7 +9,7 @@ type Ag = Appointment & { servico_nome: string | null };
 
 export default function AbaHistorico() {
   const { dados, erro, recarregar } = useDados<Ag[]>(async () => {
-    const { adminGetHistorico } = await import("@/lib/actions");
+    const { adminGetHistorico } = await import("@/lib/acoes/admin-agenda");
     return adminGetHistorico();
   });
   const [filtro, setFiltro] = useState("todos");

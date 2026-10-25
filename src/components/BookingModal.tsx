@@ -94,7 +94,7 @@ export default function BookingModal() {
     if (!aberto) return;
     setErro("");
     let vivo = true;
-    import("@/lib/actions").then(async ({ getServices }) => {
+    import("@/lib/acoes/publico").then(async ({ getServices }) => {
       const lista = await getServices();
       if (!vivo) return;
       setServices(lista);
@@ -113,7 +113,7 @@ export default function BookingModal() {
     setDica("");
     setGrade(null);
     try {
-      const { getAvailableSlots } = await import("@/lib/actions");
+      const { getAvailableSlots } = await import("@/lib/acoes/agenda");
       const r = await getAvailableSlots(data, serviceId);
       setGrade(r.grade);
       setDuracaoMin(r.duracaoMin);
@@ -148,7 +148,7 @@ export default function BookingModal() {
     setEnviando(true);
     setErro("");
     try {
-      const { createAppointment } = await import("@/lib/actions");
+      const { createAppointment } = await import("@/lib/acoes/agenda");
       const r = await createAppointment({
         nome,
         telefone,

@@ -8,7 +8,7 @@ import type { Aba } from "../navegacao";
 
 export default function AbaDashboard({ irPara }: { irPara: (a: Aba) => void }) {
   const { dados, erro, recarregar } = useDados<DashboardData>(async () => {
-    const { adminDashboard } = await import("@/lib/actions");
+    const { adminDashboard } = await import("@/lib/acoes/admin-agenda");
     return adminDashboard();
   });
   const [atualizado, setAtualizado] = useState<Date | null>(null);

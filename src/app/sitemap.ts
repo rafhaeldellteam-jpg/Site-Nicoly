@@ -1,5 +1,5 @@
 ﻿import type { MetadataRoute } from "next";
-import { getAllSlugs } from "@/lib/marketing-actions";
+import { getAllSlugs } from "@/lib/acoes/marketing";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = "https://nicbeautty.vercel.app";

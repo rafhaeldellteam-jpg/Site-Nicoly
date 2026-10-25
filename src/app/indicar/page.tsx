@@ -22,7 +22,7 @@ export default function IndicarPage() {
     setLoading(true);
     setMsg("");
     try {
-      const { createReferral } = await import("@/lib/marketing-actions");
+      const { createReferral } = await import("@/lib/acoes/marketing");
       const result = await createReferral(name.trim(), whatsapp.trim());
       setMsg(result.msg);
       setSuccess(result.ok);
@@ -43,7 +43,7 @@ export default function IndicarPage() {
     setLoading(true);
     setMsg("");
     try {
-      const { useReferral } = await import("@/lib/marketing-actions");
+      const { useReferral } = await import("@/lib/acoes/marketing");
       const result = await useReferral(code.trim(), referredName.trim(), referredWhatsapp.trim());
       setMsg(result.msg);
       setSuccess(result.ok);

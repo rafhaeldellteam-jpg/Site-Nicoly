@@ -31,7 +31,7 @@ function precoNumero(txt: string): number | null {
 
 export default function AbaCatalogo() {
   const { dados, erro, recarregar } = useDados<Service[]>(async () => {
-    const { adminGetAllServices } = await import("@/lib/actions");
+    const { adminGetAllServices } = await import("@/lib/acoes/admin-site");
     return adminGetAllServices();
   });
   const acao = useAcao();
@@ -46,7 +46,7 @@ export default function AbaCatalogo() {
   const ativos = dados.filter((s) => s.ativo !== false).length;
 
   async function alternarAtivo(s: Service) {
-    const { adminSaveService } = await import("@/lib/actions");
+    const { adminSaveService } = await import("@/lib/acoes/admin-site");
     const r = await acao(
       () => adminSaveService({ ...s, ativo: s.ativo === false }),
       s.ativo === false ? `"${s.nome}" voltou para o site.` : `"${s.nome}" foi escondido do site.`
@@ -58,7 +58,7 @@ export default function AbaCatalogo() {
     const idx = dados!.findIndex((x) => x.id === s.id);
     const outro = dados![idx + direcao];
     if (!outro) return;
-    const { adminSaveService } = await import("@/lib/actions");
+    const { adminSaveService } = await import("@/lib/acoes/admin-site");
     // grava a ordem de todos para ficar consistente
     const novaOrdem = [...dados!];
     novaOrdem[idx] = outro;
@@ -193,7 +193,7 @@ function EditorServico({
 
   async function salvar() {
     setSalvando(true);
-    const { adminSaveService, uploadServiceImage } = await import("@/lib/actions");
+    const { adminSaveService, uploadServiceImage } = await import("@/lib/acoes/admin-site");
 
     let urlFinal = imagem.trim() || null;
     if (arquivo) {
@@ -233,7 +233,7 @@ function EditorServico({
 
   async function excluir() {
     if (!servico.id || !confirm(`Excluir "${servico.nome}" do catálogo? Agendamentos antigos continuam no histórico.`)) return;
-    const { adminDeleteService } = await import("@/lib/actions");
+    const { adminDeleteService } = await import("@/lib/acoes/admin-site");
     const r = await acao(() => adminDeleteService(servico.id!), "Serviço excluído.");
     if (r?.ok) aoSalvar();
   }

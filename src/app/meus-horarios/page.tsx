@@ -43,7 +43,7 @@ export default function MeusHorariosPage() {
       setEstado("semlogin");
       return;
     }
-    const { getMyAppointments } = await import("@/lib/actions");
+    const { getMyAppointments } = await import("@/lib/acoes/agenda");
     const lista = await getMyAppointments(token);
     setItens(lista);
     setEstado(lista.length === 0 ? "vazio" : "ok");

@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ShareButtons from "@/components/ShareButtons";
-import { getPostBySlug, getAllSlugs } from "@/lib/marketing-actions";
+import { getPostBySlug, getAllSlugs } from "@/lib/acoes/marketing";
 import type { Metadata } from "next";
 
 export async function generateStaticParams() {

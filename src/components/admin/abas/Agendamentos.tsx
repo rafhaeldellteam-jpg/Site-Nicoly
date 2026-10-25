@@ -21,7 +21,7 @@ type Filtro = "hoje" | "semana" | "todos";
 
 export default function AbaAgendamentos() {
   const { dados, erro, recarregar } = useDados<Ag[]>(async () => {
-    const { adminGetAppointments } = await import("@/lib/actions");
+    const { adminGetAppointments } = await import("@/lib/acoes/admin-agenda");
     return adminGetAppointments();
   });
   const acao = useAcao();
@@ -57,7 +57,7 @@ export default function AbaAgendamentos() {
 
   async function mudarStatus(a: Ag, status: string) {
     if (status === "cancelado" && !confirm(`Cancelar o horário de ${a.client_name}? O horário volta a ficar livre no site.`)) return;
-    const { adminSetAppointmentStatus } = await import("@/lib/actions");
+    const { adminSetAppointmentStatus } = await import("@/lib/acoes/admin-agenda");
     const r = await acao(
       () => adminSetAppointmentStatus(a.id, status),
       status === "concluido" ? "Atendimento concluído." : status === "cancelado" ? "Horário cancelado e liberado." : "Status atualizado."

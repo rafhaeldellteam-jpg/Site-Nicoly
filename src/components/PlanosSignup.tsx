@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { IconCheck } from "@/components/icons";
-import { createAssinaturaPublic } from "@/lib/actions";
+import { createAssinaturaPublic } from "@/lib/acoes/planos";
 
 /** Formulário do pedido de Plano VIP (etapa 2 da página de planos). */
 export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] }) {

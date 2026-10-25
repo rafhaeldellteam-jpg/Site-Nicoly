@@ -7,7 +7,7 @@ import { Badge, BarraAba, Carregando, ErroCarregar, ListaVazia, Secao, useAcao, 
 
 export default function AbaAvaliacoes() {
   const { dados, erro, recarregar } = useDados<Feedback[]>(async () => {
-    const { adminGetFeedbacks } = await import("@/lib/actions");
+    const { adminGetFeedbacks } = await import("@/lib/acoes/admin-site");
     return adminGetFeedbacks();
   });
   const acao = useAcao();
@@ -21,14 +21,14 @@ export default function AbaAvaliacoes() {
   const media = noAr.length ? noAr.reduce((t, f) => t + f.estrelas, 0) / noAr.length : 0;
 
   async function aprovar(f: Feedback, aprovado: boolean) {
-    const { adminSetFeedbackAprovado } = await import("@/lib/actions");
+    const { adminSetFeedbackAprovado } = await import("@/lib/acoes/admin-site");
     const r = await acao(() => adminSetFeedbackAprovado(f.id, aprovado), aprovado ? "Avaliação publicada no site." : "Avaliação retirada do site.");
     if (r?.ok) recarregar();
   }
 
   async function excluir(f: Feedback) {
     if (!confirm(`Excluir a avaliação de ${f.nome}?`)) return;
-    const { adminDeleteFeedback } = await import("@/lib/actions");
+    const { adminDeleteFeedback } = await import("@/lib/acoes/admin-site");
     const r = await acao(() => adminDeleteFeedback(f.id), "Avaliação excluída.");
     if (r?.ok) recarregar();
   }

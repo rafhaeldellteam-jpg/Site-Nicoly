@@ -7,7 +7,7 @@ import { Badge, BarraAba, Campo, CampoImagem, Carregando, ErroCarregar, Gaveta, 
 
 export default function AbaEquipe() {
   const { dados, erro, recarregar } = useDados<Funcionario[]>(async () => {
-    const { adminGetFuncionarios } = await import("@/lib/actions");
+    const { adminGetFuncionarios } = await import("@/lib/acoes/admin-site");
     return adminGetFuncionarios();
   });
   const [editando, setEditando] = useState<Partial<Funcionario> | null>(null);
@@ -74,7 +74,7 @@ function EditorFuncionaria({ f, aoFechar, aoSalvar }: { f: Partial<Funcionario>;
 
   async function salvar() {
     setSalvando(true);
-    const { adminSaveFuncionario, uploadFuncionarioFoto } = await import("@/lib/actions");
+    const { adminSaveFuncionario, uploadFuncionarioFoto } = await import("@/lib/acoes/admin-site");
     let url: string | null = foto.trim() || null;
     if (arquivo) {
       const up = await acao(async () => {
@@ -106,7 +106,7 @@ function EditorFuncionaria({ f, aoFechar, aoSalvar }: { f: Partial<Funcionario>;
 
   async function excluir() {
     if (!f.id || !confirm(`Remover ${f.nome} da equipe?`)) return;
-    const { adminDeleteFuncionario } = await import("@/lib/actions");
+    const { adminDeleteFuncionario } = await import("@/lib/acoes/admin-site");
     const r = await acao(() => adminDeleteFuncionario(f.id!), "Removida da equipe.");
     if (r?.ok) aoSalvar();
   }

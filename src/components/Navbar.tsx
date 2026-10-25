@@ -60,7 +60,7 @@ export default function Navbar() {
         syncAuthCookie(data.session);
         // mostra o link "Painel" só para quem está na tabela de administradoras
         if (data.session?.user?.email) {
-          import("@/lib/acesso-actions")
+          import("@/lib/acoes/acesso")
             .then(({ souAdmin }) => souAdmin())
             .then(setEhAdmin)
             .catch(() => setEhAdmin(false));
