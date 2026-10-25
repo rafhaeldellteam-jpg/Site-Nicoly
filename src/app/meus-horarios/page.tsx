@@ -52,25 +52,26 @@ export default function MeusHorariosPage() {
   const [remarcando, setRemarcando] = useState<MeuAgendamento | null>(null);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
 
-  const carregar = useCallback(async () => {
-    const token = await tokenAtual();
-    if (!token) {
-      setEstado("semlogin");
-      return;
-    }
-    try {
-      const { getMyAppointments } = await import("@/lib/acoes/agenda");
-      const lista = (await getMyAppointments(token)) as MeuAgendamento[];
-      setItens(lista);
-      setEstado(lista.length === 0 ? "vazio" : "ok");
-    } catch {
-      setEstado("erro");
-    }
+  const carregar = useCallback(() => {
+    return tokenAtual()
+      .then(async (token) => {
+        if (!token) {
+          setEstado("semlogin");
+          return;
+        }
+        const { getMyAppointments } = await import("@/lib/acoes/agenda");
+        const lista = (await getMyAppointments(token)) as MeuAgendamento[];
+        setItens(lista);
+        setEstado(lista.length === 0 ? "vazio" : "ok");
+      })
+      .catch(() => setEstado("erro"));
   }, []);
 
+  // o Supabase avisa a sessão atual logo ao assinar (INITIAL_SESSION) e a cada login/saída
   useEffect(() => {
-    carregar();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => carregar());
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void carregar();
+    });
     return () => sub.subscription.unsubscribe();
   }, [carregar]);
 
@@ -265,8 +266,12 @@ function RemarcarModal({
   aoConcluir: (msg: string) => void;
 }) {
   const [data, setData] = useState(agendamento.appointment_date);
-  const [grade, setGrade] = useState<HorarioGrade[] | null>(null);
-  const [hora, setHora] = useState<string | null>(null);
+  // grade e horário valem para o dia em que foram lidos/escolhidos
+  const [leitura, setLeitura] = useState<{ data: string; grade: HorarioGrade[] } | null>(null);
+  const [escolha, setEscolha] = useState<{ data: string; hora: string } | null>(null);
+  const grade = leitura?.data === data ? leitura.grade : null;
+  const hora = escolha?.data === data ? escolha.hora : null;
+  const setHora = (h: string) => setEscolha({ data, hora: h });
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
   useModal(true, aoFechar);
@@ -288,12 +293,10 @@ function RemarcarModal({
 
   useEffect(() => {
     let vivo = true;
-    setGrade(null);
-    setHora(null);
     import("@/lib/acoes/agenda")
       .then(({ getAvailableSlots }) => getAvailableSlots(data, agendamento.service_id, agendamento.id))
-      .then((r) => vivo && setGrade(r.grade))
-      .catch(() => vivo && setGrade([]));
+      .then((r) => vivo && setLeitura({ data, grade: r.grade }))
+      .catch(() => vivo && setLeitura({ data, grade: [] }));
     return () => {
       vivo = false;
     };
