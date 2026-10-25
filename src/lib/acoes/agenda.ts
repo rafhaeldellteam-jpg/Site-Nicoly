@@ -212,7 +212,7 @@ export async function createAppointment(input: {
     .select("id")
     .single();
   if (error && /valor/.test(error.message)) {
-    // banco ainda sem a coluna (sql 008 não rodado)
+    // banco ainda sem a coluna (migração 008 não rodada)
     ({ data: criado, error } = await supabaseAdmin.from("appointments").insert(registro).select("id").single());
   }
   if (error) {

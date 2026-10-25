@@ -71,7 +71,7 @@ export async function adminSaveService(
       : supabaseAdmin.from("services").insert(dados).select("id").single();
 
   let { data, error } = await gravar(registro);
-  // banco ainda sem as colunas novas (sql-painel-v2.sql não rodado): salva o básico
+  // banco ainda sem as colunas novas (migração 006 não rodada): salva o básico
   if (error && COLUNAS_NOVAS_SERVICO.some((c) => error!.message.includes(c))) {
     const basico = { ...registro };
     for (const c of COLUNAS_NOVAS_SERVICO) delete basico[c];

@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 /*
  * Limite de tentativas.
  *
- * Usa a função `hit_rate_limit` do Supabase (criada em sql-seguranca.sql), que
+ * Usa a função `hit_rate_limit` do Supabase (criada em supabase/migrations/005_seguranca.sql), que
  * vale para todas as instâncias da Vercel. Se a função ainda não existir no
  * banco, cai para um limite em memória (menos eficaz, mas melhor que nada).
  */

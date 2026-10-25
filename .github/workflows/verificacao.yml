@@ -1,0 +1,25 @@
+name: Verificação
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Testes das regras
+        run: npm test
+      - name: Tipos (TypeScript)
+        run: npm run typecheck
+      - name: Lint
+        # avisos de estilo ainda não bloqueiam a publicação
+        continue-on-error: true
+        run: npm run lint

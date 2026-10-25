@@ -6,6 +6,8 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase";
 import type { Appointment, Service } from "@/lib/types";
 
+export { escaparLike, validarEmail, validarTelefone } from "@/lib/texto";
+
 export type Resultado = { ok: boolean; erro?: string };
 
 /** Atualiza as páginas que mostram o catálogo, para a mudança aparecer na hora. */
@@ -24,22 +26,6 @@ export function resultado(error: { message: string } | null): Resultado {
   if (error) return { ok: false, erro: error.message };
   atualizarPaginasPublicas();
   return { ok: true };
-}
-
-export function validarTelefone(tel: string): boolean {
-  return /^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$/.test(tel.trim());
-}
-
-export function validarEmail(email: string): boolean {
-  return email.length <= 120 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-/**
- * Escapa os curingas do ILIKE (% e _), para a busca por e-mail achar só
- * aquele e-mail exato (sem diferenciar maiúsculas).
- */
-export function escaparLike(texto: string): string {
-  return texto.replace(/[\\%_]/g, (c) => `\\${c}`);
 }
 
 export function ordenarServicos(lista: Service[]): Service[] {

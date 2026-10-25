@@ -56,7 +56,7 @@ export default function AbaNovidades() {
   if (dados.semTabela)
     return (
       <ListaVazia>
-        Falta criar a tabela de novidades. Rode o arquivo <code className="text-(--rose-gold)">sql-painel-v2.sql</code> no SQL Editor do Supabase e
+        Falta criar a tabela de novidades. Rode o arquivo <code className="text-(--rose-gold)">supabase/migrations/006_painel_v2.sql</code> no SQL Editor do Supabase e
         recarregue esta página.
       </ListaVazia>
     );
