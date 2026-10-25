@@ -20,4 +20,7 @@ jobs:
       - name: Tipos (TypeScript)
         run: npm run typecheck
       - name: Lint
-        run: npm run lint
+        # cada problema vira uma anotação no arquivo/linha (aparece no PR)
+        run: |
+          npx eslint . -f json -o eslint.json || true
+          node scripts/eslint-anotacoes.mjs
