@@ -12,6 +12,19 @@ export const FIM_EXPEDIENTE = "19:00";
 /** Duração usada quando o serviço não informa o tempo. */
 export const DURACAO_PADRAO_MIN = 60;
 
+/** A cliente pode remarcar ou cancelar pelo site até X horas antes do horário. */
+export const ANTECEDENCIA_ALTERACAO_HORAS = 24;
+
+/** Momento (ms) em que o atendimento começa, no fuso de São Paulo. */
+export function inicioDoAtendimento(dataISO: string, hora: string): number {
+  return new Date(`${dataISO}T${hora.slice(0, 5)}:00-03:00`).getTime();
+}
+
+/** true se ainda dá tempo de remarcar/cancelar pelo site. */
+export function podeAlterarPeloSite(dataISO: string, hora: string, agora: number = Date.now()): boolean {
+  return inicioDoAtendimento(dataISO, hora) - agora >= ANTECEDENCIA_ALTERACAO_HORAS * 3600000;
+}
+
 /**
  * Situação de cada horário na tela de agendamento:
  * - livre: pode agendar (verde)

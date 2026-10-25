@@ -8,6 +8,7 @@ import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { requireAdmin } from "@/lib/admin-auth";
 import { hojeSP } from "@/lib/datas";
 import { createCalendarEvent } from "@/lib/google-calendar";
+import { ERRO_CAPTCHA, verificarCaptcha } from "@/lib/captcha";
 import { sendNicEmail } from "@/lib/gmail";
 import { buildPlanActivatedEmail, buildReminderEmail, buildAssinaturaSalonEmail } from "@/lib/emails";
 import { proximaRenovacao, VIP_VALOR_PADRAO } from "@/lib/planos";
@@ -160,10 +161,12 @@ export async function createAssinaturaPublic(input: {
   whatsapp: string;
   email?: string;
   tecnica?: string;
+  captcha?: string;
 }): Promise<{ ok: boolean; erro?: string }> {
   const ip = await clientIp();
   if (!(await rateLimit(`plano:${ip}`, 3, 30 * 60 * 1000)))
     return { ok: false, erro: "Muitas tentativas. Aguarde alguns minutos." };
+  if (!(await verificarCaptcha(input.captcha, ip))) return { ok: false, erro: ERRO_CAPTCHA };
 
   const nome = String(input.nome ?? "").trim();
   const whatsapp = String(input.whatsapp ?? "").trim();

@@ -7,6 +7,7 @@ import { useModal } from "@/lib/use-modal";
 import type { Service } from "@/lib/types";
 import { duracaoDoServico, formatarDuracao, type HorarioGrade } from "@/lib/agenda";
 import { IconSparkle, IconHeart, WhatsAppIcon } from "@/components/icons";
+import Captcha, { captchaAtivo } from "@/components/Captcha";
 
 type Etapa = "form" | "sucesso";
 
@@ -43,6 +44,8 @@ export default function BookingModal() {
   const [email, setEmail] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [captcha, setCaptcha] = useState("");
+  const [novoCaptcha, setNovoCaptcha] = useState(0);
   const [erro, setErro] = useState("");
   const [etapa, setEtapa] = useState<Etapa>("form");
   const [resumo, setResumo] = useState<{ servico: string; data: string; hora: string } | null>(null);
@@ -156,9 +159,13 @@ export default function BookingModal() {
         serviceId,
         data,
         horario: slot,
+        captcha,
       });
       if (!r.ok) {
         setErro(r.erro ?? "Erro ao agendar.");
+        // cada token do captcha vale uma vez: pede um novo
+        setCaptcha("");
+        setNovoCaptcha((n) => n + 1);
         buscarSlots();
         return;
       }
@@ -383,6 +390,8 @@ export default function BookingModal() {
                 />
               </div>
 
+              <Captcha aoValidar={setCaptcha} reiniciar={novoCaptcha} />
+
               {erro && (
                 <p className="text-[#ef5350] text-sm mb-4 text-center" role="alert">
                   {erro}
@@ -391,7 +400,7 @@ export default function BookingModal() {
 
               <button
                 className="btn btn-primary btn-block"
-                disabled={!slot || nome.trim().length < 3 || !telefoneOk || enviando}
+                disabled={!slot || nome.trim().length < 3 || !telefoneOk || enviando || (captchaAtivo && !captcha)}
                 onClick={confirmar}
               >
                 {enviando ? "Agendando..." : slot ? `Confirmar para às ${slot}` : "Escolha um horário"}

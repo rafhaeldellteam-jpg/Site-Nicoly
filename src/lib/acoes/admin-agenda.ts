@@ -2,7 +2,9 @@
 
 /** Painel: agendamentos, bloqueios, histórico e indicadores do início. */
 
+import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { deleteCalendarEvent } from "@/lib/google-calendar";
 import { requireAdmin } from "@/lib/admin-auth";
 import { hojeSP } from "@/lib/datas";
 import { HORARIOS } from "@/lib/agenda";
@@ -27,11 +29,16 @@ export async function adminSetAppointmentStatus(
   await requireAdmin();
   if (!["confirmado", "cancelado", "concluido"].includes(status))
     return { ok: false, erro: "Status inválido." };
+  const { data: antes } = await supabaseAdmin.from("appointments").select("*").eq("id", id).single();
   const { error } = await supabaseAdmin
     .from("appointments")
     .update({ status })
     .eq("id", id);
-  return error ? { ok: false, erro: error.message } : { ok: true };
+  if (error) return { ok: false, erro: error.message };
+  // cancelado no painel → sai do Google Agenda e o horário volta a ficar livre
+  const eventoId = (antes as { google_event_id?: string | null } | null)?.google_event_id;
+  if (status === "cancelado" && eventoId) after(() => deleteCalendarEvent(eventoId).then(() => undefined));
+  return { ok: true };
 }
 
 export async function adminGetBlockedSlots(): Promise<
