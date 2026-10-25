@@ -124,7 +124,7 @@ export async function createReferral(
   return { ok: true, code, msg: "Codigo criado!" };
 }
 
-export async function useReferral(
+export async function usarCodigoIndicacao(
   code: string,
   referredName: string,
   referredWhatsapp: string
