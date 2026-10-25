@@ -2,3 +2,7 @@
 .env*
 node_modules/
 tsconfig.tsbuildinfo
+
+# modelo de variáveis pode ir para o repositório
+!.env.example
+eslint.json

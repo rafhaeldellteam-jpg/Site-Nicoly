@@ -23,13 +23,15 @@ const AbaNovidades = dynamic(() => import("@/components/admin/abas/Novidades"), 
 const AbaGaleria = dynamic(() => import("@/components/admin/abas/Galeria"), { loading: carregando });
 const AbaEquipe = dynamic(() => import("@/components/admin/abas/Equipe"), { loading: carregando });
 const AbaMarketing = dynamic(() => import("@/components/admin/abas/Marketing"), { loading: carregando });
+const AbaFinanceiro = dynamic(() => import("@/components/admin/abas/Financeiro"), { loading: carregando });
+const AbaCliques = dynamic(() => import("@/components/admin/abas/Cliques"), { loading: carregando });
 
 const ABA_SALVA = "nic_admin_aba";
 
 /** Pergunta ao servidor se a conta logada está ativa na tabela de administradoras. */
 async function verificarAcesso(): Promise<boolean> {
   try {
-    const { souAdmin } = await import("@/lib/acesso-actions");
+    const { souAdmin } = await import("@/lib/acoes/acesso");
     return await souAdmin();
   } catch {
     return false;
@@ -170,7 +172,7 @@ function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
     }
     setEnviandoFoto(true);
     try {
-      const { uploadFuncionarioFoto } = await import("@/lib/actions");
+      const { uploadFuncionarioFoto } = await import("@/lib/acoes/admin-site");
       const up = await uploadFuncionarioFoto(arquivo);
       if (!up.url) {
         alert(up.erro ?? "Não foi possível enviar a foto.");
@@ -214,7 +216,7 @@ function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
     let vivo = true;
     const buscar = async () => {
       try {
-        const { adminDashboard } = await import("@/lib/actions");
+        const { adminDashboard } = await import("@/lib/acoes/admin-agenda");
         const d = await adminDashboard();
         if (vivo) setPendencias({ avaliacoes: d.avaliacoes_pendentes, planos: d.planos_pendentes });
       } catch {
@@ -367,6 +369,8 @@ function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
           {aba === "galeria" && <AbaGaleria />}
           {aba === "funcionarios" && <AbaEquipe />}
           {aba === "marketing" && <AbaMarketing />}
+          {aba === "financeiro" && <AbaFinanceiro irPara={irPara} />}
+          {aba === "cliques" && <AbaCliques />}
         </div>
       </main>
 

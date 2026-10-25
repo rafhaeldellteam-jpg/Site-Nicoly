@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Assinatura } from "@/lib/types";
 import { WhatsAppIcon } from "@/components/icons";
-import { renovacaoInfo } from "../shared";
+import { proximaRenovacao } from "@/lib/planos";
 import {
   Badge,
   BarraAba,
@@ -29,7 +29,7 @@ const COR_STATUS: Record<string, "verde" | "amarelo" | "vermelho" | "neutro"> = 
 
 export default function AbaPlanos() {
   const { dados, erro, recarregar } = useDados<Assinatura[]>(async () => {
-    const { adminGetAssinaturas } = await import("@/lib/actions");
+    const { adminGetAssinaturas } = await import("@/lib/acoes/planos");
     return adminGetAssinaturas();
   });
   const acao = useAcao();
@@ -45,7 +45,7 @@ export default function AbaPlanos() {
 
   async function mudarStatus(a: Assinatura, status: string) {
     if (status === "cancelado" && !confirm(`Cancelar o plano de ${a.cliente_nome}?`)) return;
-    const { adminSetAssinaturaStatus } = await import("@/lib/actions");
+    const { adminSetAssinaturaStatus } = await import("@/lib/acoes/planos");
     const r = await acao(
       () => adminSetAssinaturaStatus(a.id!, status),
       status === "ativo" && a.status === "pendente"
@@ -58,7 +58,7 @@ export default function AbaPlanos() {
   }
 
   async function lembrete(a: Assinatura) {
-    const { adminSendLembreteAssinatura } = await import("@/lib/actions");
+    const { adminSendLembreteAssinatura } = await import("@/lib/acoes/planos");
     await acao(async () => {
       const r = await adminSendLembreteAssinatura(a.id!);
       return { ok: r.ok, erro: r.msg };
@@ -67,13 +67,13 @@ export default function AbaPlanos() {
 
   async function remover(a: Assinatura) {
     if (!confirm(`Remover a assinatura de ${a.cliente_nome}? Isso apaga o registro.`)) return;
-    const { adminDeleteAssinatura } = await import("@/lib/actions");
+    const { adminDeleteAssinatura } = await import("@/lib/acoes/planos");
     const r = await acao(() => adminDeleteAssinatura(a.id!), "Assinatura removida.");
     if (r?.ok) recarregar();
   }
 
   const linha = (a: Assinatura) => {
-    const ren = renovacaoInfo(a.inicio);
+    const ren = proximaRenovacao(a.inicio);
     return (
       <li key={a.id} className="adm-item">
         <div className="adm-item-info">
@@ -81,8 +81,8 @@ export default function AbaPlanos() {
             <strong className="truncate">{a.cliente_nome}</strong>
             <Badge cor={COR_STATUS[a.status ?? "ativo"] ?? "neutro"}>{a.status ?? "ativo"}</Badge>
             {a.status === "ativo" && (
-              <Badge cor={ren.dias <= 5 ? "amarelo" : "neutro"}>
-                renova em {ren.dias} {ren.dias === 1 ? "dia" : "dias"}
+              <Badge cor={ren.diasRestantes <= 5 ? "amarelo" : "neutro"}>
+                renova em {ren.diasRestantes} {ren.diasRestantes === 1 ? "dia" : "dias"}
               </Badge>
             )}
           </div>
@@ -173,7 +173,7 @@ function FormAssinatura({ aberta, aoFechar, aoSalvar }: { aberta: boolean; aoFec
 
   async function salvar() {
     setSalvando(true);
-    const { adminSaveAssinatura } = await import("@/lib/actions");
+    const { adminSaveAssinatura } = await import("@/lib/acoes/planos");
     const r = await acao(
       () =>
         adminSaveAssinatura({

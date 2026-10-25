@@ -7,6 +7,7 @@ import { useModal } from "@/lib/use-modal";
 import type { Service } from "@/lib/types";
 import { duracaoDoServico, formatarDuracao, type HorarioGrade } from "@/lib/agenda";
 import { IconSparkle, IconHeart, WhatsAppIcon } from "@/components/icons";
+import Captcha, { captchaAtivo } from "@/components/Captcha";
 
 type Etapa = "form" | "sucesso";
 
@@ -34,15 +35,25 @@ export default function BookingModal() {
   const [services, setServices] = useState<Service[]>([]);
   const [serviceId, setServiceId] = useState<number | null>(null);
   const [data, setData] = useState(() => isoLocal(new Date()));
-  const [grade, setGrade] = useState<HorarioGrade[] | null>(null);
-  const [duracaoMin, setDuracaoMin] = useState(60);
-  const [dica, setDica] = useState("");
-  const [slot, setSlot] = useState<string | null>(null);
+  // a grade, o horário escolhido e a dica valem para um dia+serviço ("chave");
+  // ao trocar o dia ou o serviço eles "somem" sozinhos, sem precisar limpar
+  const chave = `${data}|${serviceId ?? ""}`;
+  const [leitura, setLeitura] = useState<{ chave: string; grade: HorarioGrade[]; duracaoMin: number } | null>(null);
+  const [versao, setVersao] = useState(0);
+  const [escolha, setEscolha] = useState<{ chave: string; hora: string } | null>(null);
+  const [dicaSel, setDicaSel] = useState<{ chave: string; texto: string } | null>(null);
+  const grade = leitura?.chave === chave ? leitura.grade : null;
+  const duracaoMin = leitura?.chave === chave ? leitura.duracaoMin : (leitura?.duracaoMin ?? 60);
+  const slot = escolha?.chave === chave ? escolha.hora : null;
+  const dica = dicaSel?.chave === chave ? dicaSel.texto : "";
+  const setSlot = (hora: string | null) => setEscolha(hora ? { chave, hora } : null);
+  const setDica = (texto: string) => setDicaSel(texto ? { chave, texto } : null);
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
-  const [carregando, setCarregando] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const [captcha, setCaptcha] = useState("");
+  const [novoCaptcha, setNovoCaptcha] = useState(0);
   const [erro, setErro] = useState("");
   const [etapa, setEtapa] = useState<Etapa>("form");
   const [resumo, setResumo] = useState<{ servico: string; data: string; hora: string } | null>(null);
@@ -64,6 +75,7 @@ export default function BookingModal() {
     const abrir = (e: Event) => {
       const detail = (e as CustomEvent).detail as { serviceId?: number } | undefined;
       if (detail?.serviceId) setServiceId(detail.serviceId);
+      setErro("");
       setAberto(true);
       import("@/lib/supabase").then(({ supabase }) =>
         supabase.auth.getSession().then(({ data }) => {
@@ -92,9 +104,8 @@ export default function BookingModal() {
 
   useEffect(() => {
     if (!aberto) return;
-    setErro("");
     let vivo = true;
-    import("@/lib/actions").then(async ({ getServices }) => {
+    import("@/lib/acoes/publico").then(async ({ getServices }) => {
       const lista = await getServices();
       if (!vivo) return;
       setServices(lista);
@@ -105,29 +116,30 @@ export default function BookingModal() {
     };
   }, [aberto]);
 
-  // a grade depende do dia e do serviço (o tempo do serviço decide o que "cabe")
-  const buscarSlots = useCallback(async () => {
-    if (!data) return;
-    setCarregando(true);
-    setSlot(null);
-    setDica("");
-    setGrade(null);
-    try {
-      const { getAvailableSlots } = await import("@/lib/actions");
-      const r = await getAvailableSlots(data, serviceId);
-      setGrade(r.grade);
-      setDuracaoMin(r.duracaoMin);
-    } catch {
-      setGrade([]);
-      setErro("Não foi possível ler a agenda. Verifique sua conexão.");
-    } finally {
-      setCarregando(false);
-    }
-  }, [data, serviceId]);
-
+  // a grade depende do dia e do serviço (o tempo do serviço decide o que "cabe");
+  // `versao` força uma nova leitura (ex.: depois que um horário foi tomado)
   useEffect(() => {
-    if (aberto && data && serviceId) buscarSlots();
-  }, [aberto, data, serviceId, buscarSlots]);
+    if (!aberto || !data || !serviceId) return;
+    let vivo = true;
+    const chaveLida = `${data}|${serviceId}`;
+    import("@/lib/acoes/agenda")
+      .then(({ getAvailableSlots }) => getAvailableSlots(data, serviceId))
+      .then((r) => vivo && setLeitura({ chave: chaveLida, grade: r.grade, duracaoMin: r.duracaoMin }))
+      .catch(() => {
+        if (!vivo) return;
+        setLeitura({ chave: chaveLida, grade: [], duracaoMin: 60 });
+        setErro("Não foi possível ler a agenda. Verifique sua conexão.");
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [aberto, data, serviceId, versao]);
+
+  const buscarSlots = () => {
+    setLeitura(null);
+    setEscolha(null);
+    setVersao((v) => v + 1);
+  };
 
   const fechar = useCallback(() => {
     setAberto(false);
@@ -148,7 +160,7 @@ export default function BookingModal() {
     setEnviando(true);
     setErro("");
     try {
-      const { createAppointment } = await import("@/lib/actions");
+      const { createAppointment } = await import("@/lib/acoes/agenda");
       const r = await createAppointment({
         nome,
         telefone,
@@ -156,9 +168,13 @@ export default function BookingModal() {
         serviceId,
         data,
         horario: slot,
+        captcha,
       });
       if (!r.ok) {
         setErro(r.erro ?? "Erro ao agendar.");
+        // cada token do captcha vale uma vez: pede um novo
+        setCaptcha("");
+        setNovoCaptcha((n) => n + 1);
         buscarSlots();
         return;
       }
@@ -291,7 +307,7 @@ export default function BookingModal() {
                   <li><i className="ocupado" /> Indisponível</li>
                   <li><i className="nao_cabe" /> Não cabe o serviço ({formatarDuracao(duracaoMin)})</li>
                 </ul>
-                {!grade || carregando ? (
+                {!grade ? (
                   <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" aria-busy="true" aria-label="Lendo a agenda">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <span key={i} className="slot-skeleton" />
@@ -383,6 +399,8 @@ export default function BookingModal() {
                 />
               </div>
 
+              <Captcha aoValidar={setCaptcha} reiniciar={novoCaptcha} />
+
               {erro && (
                 <p className="text-[#ef5350] text-sm mb-4 text-center" role="alert">
                   {erro}
@@ -391,7 +409,7 @@ export default function BookingModal() {
 
               <button
                 className="btn btn-primary btn-block"
-                disabled={!slot || nome.trim().length < 3 || !telefoneOk || enviando}
+                disabled={!slot || nome.trim().length < 3 || !telefoneOk || enviando || (captchaAtivo && !captcha)}
                 onClick={confirmar}
               >
                 {enviando ? "Agendando..." : slot ? `Confirmar para às ${slot}` : "Escolha um horário"}

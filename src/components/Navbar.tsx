@@ -21,6 +21,22 @@ const LINKS = [
   { href: "/#contato", label: "Contato" },
 ];
 
+/** E-mail de boas-vindas na primeira vez que a cliente entra (uma vez por aparelho). */
+function boasVindas(email: string, token: string) {
+  const chave = `nic_boas_vindas_${email}`;
+  try {
+    if (localStorage.getItem(chave)) return;
+    localStorage.setItem(chave, "1");
+  } catch {
+    return;
+  }
+  // o servidor descobre o e-mail pelo token — não aceita destinatário digitado
+  void fetch("/api/email/welcome", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => {});
+}
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
@@ -60,7 +76,7 @@ export default function Navbar() {
         syncAuthCookie(data.session);
         // mostra o link "Painel" só para quem está na tabela de administradoras
         if (data.session?.user?.email) {
-          import("@/lib/acesso-actions")
+          import("@/lib/acoes/acesso")
             .then(({ souAdmin }) => souAdmin())
             .then(setEhAdmin)
             .catch(() => setEhAdmin(false));
@@ -91,21 +107,6 @@ export default function Navbar() {
     const { data: sub } = supabase.auth.onAuthStateChange(() => carregar());
     return () => sub.subscription.unsubscribe();
   }, []);
-
-  function boasVindas(email: string, token: string) {
-    const chave = `nic_boas_vindas_${email}`;
-    try {
-      if (localStorage.getItem(chave)) return;
-      localStorage.setItem(chave, "1");
-    } catch {
-      return;
-    }
-    // o servidor descobre o e-mail pelo token — não aceita destinatário digitado
-    void fetch("/api/email/welcome", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {});
-  }
 
   async function sair() {
     await supabase.auth.signOut();

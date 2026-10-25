@@ -274,3 +274,82 @@ export function buildPlanActivatedEmail(d: {
     rodapeMsg: "Você recebeu este e-mail porque seu Plano VIP Nicbeautty foi ativado.",
   });
 }
+
+/* ============ LEMBRETE DO AGENDAMENTO (1 dia antes) ============ */
+export function buildLembreteAgendamentoEmail(d: BookingEmailData): string {
+  return EMAIL({
+    tituloIcone: "Seu horário é amanhã!",
+    subtituloIcone: `Estamos te esperando, ${(d.nome || "").split(" ")[0] || "querida"}`,
+    corpoTabela: [
+      { rotulo: "Serviço", valor: d.servico, destaque: true },
+      { rotulo: "Data", valor: formatBRDate(d.data) },
+      { rotulo: "Horário", valor: d.horario, destaque: true },
+      { rotulo: "Local", valor: ENDERECO_LINHA },
+    ],
+    mensagemExtra: `<p style="color:#a1a1a8;font-size:13px;line-height:1.8;margin:0 0 18px;text-align:center;">
+      Chegue com os olhos limpos, sem maquiagem nos cílios.<br>
+      Não vai conseguir vir? Remarque ou cancele pelo site, sem precisar ligar.<br>
+      <a href="${MAPS_URL}" style="color:#d8a37d;">Ver rota no Google Maps</a>
+    </p>`,
+    botao: { texto: "Remarcar ou cancelar", url: `${BASE}/meus-horarios` },
+    rodapeMsg: "Você recebeu este lembrete porque agendou um horário na Nicbeautty.",
+  });
+}
+
+/* ============ REMARCAÇÃO (cliente) ============ */
+export function buildRemarcadoClienteEmail(d: BookingEmailData): string {
+  return EMAIL({
+    tituloIcone: "Horário remarcado!",
+    subtituloIcone: "Seu novo horário já está reservado",
+    corpoTabela: [
+      { rotulo: "Serviço", valor: d.servico, destaque: true },
+      { rotulo: "Nova data", valor: formatBRDate(d.data) },
+      { rotulo: "Novo horário", valor: d.horario, destaque: true },
+      { rotulo: "Local", valor: ENDERECO_LINHA },
+    ],
+    botao: { texto: "Ver Meu Horário", url: `${BASE}/meus-horarios` },
+    rodapeMsg: "Você recebeu este e-mail porque remarcou um horário na Nicbeautty.",
+  });
+}
+
+/* ============ CANCELAMENTO / REMARCAÇÃO (aviso ao salão) ============ */
+export function buildAlteracaoSalonEmail(d: {
+  tipo: "cancelado" | "remarcado";
+  nome: string;
+  telefone: string;
+  servico: string;
+  dataAntiga: string;
+  horaAntiga: string;
+  dataNova?: string;
+  horaNova?: string;
+}): string {
+  const remarcado = d.tipo === "remarcado";
+  return EMAIL({
+    tituloIcone: remarcado ? "Horário remarcado pela cliente" : "Horário cancelado pela cliente",
+    subtituloIcone: remarcado ? "A agenda já foi atualizada" : "O horário voltou a ficar livre no site",
+    corpoTabela: [
+      { rotulo: "Cliente", valor: d.nome },
+      { rotulo: "WhatsApp", valor: d.telefone },
+      { rotulo: "Serviço", valor: d.servico, destaque: true },
+      { rotulo: remarcado ? "Era" : "Data", valor: `${formatBRDate(d.dataAntiga)} às ${d.horaAntiga}` },
+      ...(remarcado && d.dataNova && d.horaNova
+        ? [{ rotulo: "Agora", valor: `${formatBRDate(d.dataNova)} às ${d.horaNova}`, destaque: true }]
+        : []),
+    ],
+    rodapeMsg: "Notificação automática do site Nicbeautty.",
+  });
+}
+
+/* ============ AGENDA DE AMANHÃ (resumo para o salão) ============ */
+export function buildAgendaDoDiaEmail(dataISO: string, itens: { horario: string; nome: string; servico: string; telefone: string }[]): string {
+  return EMAIL({
+    tituloIcone: `Agenda de amanhã: ${itens.length} ${itens.length === 1 ? "atendimento" : "atendimentos"}`,
+    subtituloIcone: formatBRDate(dataISO),
+    corpoTabela: itens.map((i) => ({ rotulo: i.horario, valor: `${i.nome} · ${i.servico}` })),
+    mensagemExtra: `<p style="color:#a1a1a8;font-size:12px;margin:0;text-align:center;">
+      As clientes com e-mail cadastrado receberam o lembrete automaticamente.
+    </p>`,
+    botao: { texto: "Abrir o painel", url: `${BASE}/admin` },
+    rodapeMsg: "Resumo automático do site Nicbeautty.",
+  });
+}

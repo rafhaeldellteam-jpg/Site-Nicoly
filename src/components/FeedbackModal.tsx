@@ -38,7 +38,7 @@ export default function FeedbackModal() {
     if (estrelas < 1 || nome.trim().length < 2) return;
     setEnviando(true);
     setMsg(null);
-    const { uploadFeedbackPhoto, createFeedback } = await import("@/lib/actions");
+    const { uploadFeedbackPhoto, createFeedback } = await import("@/lib/acoes/publico");
 
     const urls: string[] = [];
     for (const foto of fotos) {

@@ -58,7 +58,7 @@ export default function NovidadesPopup() {
     let vivo = true;
     const t = setTimeout(async () => {
       try {
-        const { getNovidadesAtivas } = await import("@/lib/novidades-actions");
+        const { getNovidadesAtivas } = await import("@/lib/acoes/novidades");
         const lista = await getNovidadesAtivas();
         if (!vivo || lista.length === 0) return;
         setItens(lista);

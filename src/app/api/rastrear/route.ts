@@ -13,6 +13,7 @@ const VALID_ORIGINS = new Set([
   "planos",
   "barra_mobile",
   "novidades",
+  "meus_horarios",
 ]);
 
 export async function POST(req: Request) {

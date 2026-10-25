@@ -7,7 +7,7 @@ import { Badge, BarraAba, Carregando, ErroCarregar, ListaVazia, useDados } from 
 
 export default function AbaClientes() {
   const { dados, erro, recarregar } = useDados<ClienteInfo[]>(async () => {
-    const { adminListClientes } = await import("@/lib/actions");
+    const { adminListClientes } = await import("@/lib/acoes/admin-clientes");
     return adminListClientes();
   });
   const [busca, setBusca] = useState("");
