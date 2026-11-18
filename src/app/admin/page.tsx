@@ -7,6 +7,7 @@ import LoginPainel from "@/components/admin/LoginPainel";
 import { supabase } from "@/lib/supabase";
 import { syncAuthCookie } from "@/lib/auth-cookie";
 import { AvisosProvider } from "@/components/admin/ui";
+import { IconLapis } from "@/components/icons";
 import { AdminAvatar, LogoSite } from "@/components/admin/shared";
 import { ATALHOS_CELULAR, GRUPOS, IconeMenu, MENU, type Aba } from "@/components/admin/navegacao";
 
@@ -266,7 +267,7 @@ function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
             <div className="adm-perfil">
               <label className="adm-perfil-foto" title="Trocar foto de perfil">
                 <AdminAvatar foto={perfil.foto} nome={perfil.nome} size={44} />
-                <span aria-hidden="true">{enviandoFoto ? "…" : "✎"}</span>
+                <span aria-hidden="true">{enviandoFoto ? "…" : <IconLapis size={11} />}</span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"

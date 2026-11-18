@@ -1591,7 +1591,8 @@ ul.ds-vip-lista { list-style: none; margin: 0; display: flex; flex-direction: co
   font-size: 0.74rem; padding: 5px 11px; border-radius: 99px; color: var(--rose-gold-light);
   background: rgba(216, 163, 125, 0.1); border: 1px solid var(--border-color); animation: loginEntra 0.4s ease both; animation-delay: var(--d);
 }
-.login-vantagens li::before { content: "✓ "; color: #7bd88f; }
+.login-vantagens li { display: inline-flex; align-items: center; gap: 5px; }
+.login-vantagens li::before { content: ""; width: 11px; height: 11px; background: #7bd88f; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E") center / contain no-repeat; }
 .login-link { font-size: 0.82rem; color: var(--rose-gold); text-decoration: underline; text-underline-offset: 3px; }
 .login-link:hover { color: var(--rose-gold-light); }
 .login-msg { font-size: 0.86rem; text-align: center; margin-bottom: 14px; padding: 10px 12px; border-radius: 12px; animation: loginEntra 0.3s ease both; }
@@ -1653,3 +1654,12 @@ ul.ds-vip-lista { list-style: none; margin: 0; display: flex; flex-direction: co
 @media (prefers-reduced-motion: reduce) {
   .login-logo, .login-logo-anel, .adm-login-brilho, .adm-login-foto, .login-conteudo, .login-vantagens li, .adm-login-caixa, .adm-login-marca-conteudo { animation: none !important; }
 }
+
+/* ícones SVG no lugar dos emojis */
+.ds-card-icone { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 11px; color: var(--rose-gold-light); background: rgba(216, 163, 125, 0.1); border: 1px solid var(--border-color); }
+.ds-card.alerta .ds-card-icone { color: #ffcb6b; background: rgba(255, 203, 107, 0.1); border-color: rgba(255, 203, 107, 0.35); }
+.ds-hero-brilhinho { display: inline-block; vertical-align: 0.15em; margin-left: 6px; color: var(--rose-gold-light); animation: loginBrilha 3s ease-in-out infinite; }
+.meu-plano-selo { display: inline-flex; align-items: center; gap: 6px; }
+.vip-pago { display: inline-flex; align-items: center; gap: 4px; }
+.login-sucesso-check svg { stroke-width: 3; }
+.anim-var svg { align-self: center; }

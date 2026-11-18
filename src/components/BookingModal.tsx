@@ -199,7 +199,7 @@ export default function BookingModal() {
 
   const msgWhatsApp =
     resumo &&
-    `Olá! Acabei de agendar pelo site:\n✨ *Serviço:* ${resumo.servico}\n📅 *Data:* ${resumo.data}\n⏰ *Horário:* ${resumo.hora}\n👤 *Nome:* ${nome}`;
+    `Olá! Acabei de agendar pelo site:\n*Serviço:* ${resumo.servico}\n*Data:* ${resumo.data}\n*Horário:* ${resumo.hora}\n*Nome:* ${nome}`;
 
   const diaForaDaLista = data && !dias.some((d) => d.iso === data);
 

@@ -5,7 +5,7 @@ import type { CSSProperties } from "react";
 import type { PainelPlanos } from "@/lib/acoes/admin-planos";
 import type { ResumoPlano } from "@/lib/planos-resumo";
 import type { TipoEmailPlano } from "@/lib/emails";
-import { WhatsAppIcon } from "@/components/icons";
+import { IconCheck, IconEmail, WhatsAppIcon } from "@/components/icons";
 import { VIP_MANUTENCOES } from "@/lib/planos";
 import { BarrasEmpilhadas } from "../graficos";
 import { BarraCiclo, Bolinhas, Numero, Variacao } from "../anima";
@@ -76,7 +76,7 @@ export default function AbaPlanos() {
     const { adminRegistrarPagamento, adminDesfazerPagamento } = await import("@/lib/acoes/admin-planos");
     const r = await acao(
       () => (pagar ? adminRegistrarPagamento(a.id) : adminDesfazerPagamento(a.id)),
-      pagar ? `Mensalidade de ${a.nome.split(" ")[0]} registrada! 💰` : "Pagamento desfeito."
+      pagar ? `Mensalidade de ${a.nome.split(" ")[0]} registrada!` : "Pagamento desfeito."
     );
     if (r?.ok) recarregar();
   }
@@ -134,7 +134,7 @@ export default function AbaPlanos() {
                   <b className="text-(--text-muted)">—</b>
                 ) : a.pagoCiclo ? (
                   <button type="button" className="vip-pago" onClick={() => pagamento(a, false)} title="Desfazer se foi marcado por engano">
-                    ✓ paga
+                    <IconCheck size={13} /> paga
                   </button>
                 ) : (
                   <button type="button" className="vip-pagar" onClick={() => pagamento(a, true)}>
@@ -169,7 +169,7 @@ export default function AbaPlanos() {
               disabled={!a.email}
               title={a.email ? `Enviar e-mail para ${a.email}` : "Sem e-mail cadastrado"}
             >
-              ✉ E-mail
+              <IconEmail size={15} /> E-mail
             </button>
           )}
           <select
@@ -332,7 +332,7 @@ function EmailPlano({ assinatura, aoFechar }: { assinatura: ResumoPlano | null; 
     if (!id) return;
     setEnviando(true);
     const { adminEnviarEmailPlano } = await import("@/lib/acoes/admin-planos");
-    const r = await acao(() => adminEnviarEmailPlano(id, tipo, mensagem), `E-mail enviado para ${assinatura?.email}! ✉️`);
+    const r = await acao(() => adminEnviarEmailPlano(id, tipo, mensagem), `E-mail enviado para ${assinatura?.email}!`);
     setEnviando(false);
     if (r?.ok) fechar();
   }
