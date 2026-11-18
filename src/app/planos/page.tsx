@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PlanosEscolha from "@/components/PlanosEscolha";
-import { getServices } from "@/lib/actions";
+import { getServices } from "@/lib/acoes/publico";
 
 export const metadata: Metadata = {
   title: "Planos VIP",

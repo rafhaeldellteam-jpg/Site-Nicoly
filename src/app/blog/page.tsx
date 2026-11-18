@@ -3,7 +3,7 @@ import Image from "next/image";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import ShareButtons from "@/components/ShareButtons";
-import { getPublishedPosts } from "@/lib/marketing-actions";
+import { getPublishedPosts } from "@/lib/acoes/marketing";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

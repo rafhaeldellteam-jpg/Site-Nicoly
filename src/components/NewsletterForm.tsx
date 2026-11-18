@@ -16,7 +16,7 @@ export default function NewsletterForm() {
     setMsg("");
     setSuccess(false);
     try {
-      const { subscribeNewsletter } = await import("@/lib/marketing-actions");
+      const { subscribeNewsletter } = await import("@/lib/acoes/marketing");
       const result = await subscribeNewsletter(nome.trim(), contato.trim());
       setMsg(result.msg);
       setSuccess(result.ok);

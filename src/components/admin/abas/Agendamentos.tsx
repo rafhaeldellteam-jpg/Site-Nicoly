@@ -13,6 +13,7 @@ import {
   hojeLocal,
   linkWhatsCliente,
   useAcao,
+  useAvisos,
   useDados,
 } from "../ui";
 
@@ -21,10 +22,11 @@ type Filtro = "hoje" | "semana" | "todos";
 
 export default function AbaAgendamentos() {
   const { dados, erro, recarregar } = useDados<Ag[]>(async () => {
-    const { adminGetAppointments } = await import("@/lib/actions");
+    const { adminGetAppointments } = await import("@/lib/acoes/admin-agenda");
     return adminGetAppointments();
   });
   const acao = useAcao();
+  const avisar = useAvisos();
   const [filtro, setFiltro] = useState<Filtro>("semana");
   const [busca, setBusca] = useState("");
 
@@ -55,9 +57,18 @@ export default function AbaAgendamentos() {
   const porData = new Map<string, Ag[]>();
   for (const a of futuros) porData.set(a.appointment_date, [...(porData.get(a.appointment_date) ?? []), a]);
 
+  async function enviarLembretes() {
+    const { adminEnviarLembretesAgora } = await import("@/lib/acoes/admin-agenda");
+    const r = await acao(async () => {
+      const res = await adminEnviarLembretesAgora();
+      return { ok: res.ok, erro: res.erro, msg: res.msg };
+    });
+    if (r?.ok && r.msg) avisar("ok", r.msg);
+  }
+
   async function mudarStatus(a: Ag, status: string) {
     if (status === "cancelado" && !confirm(`Cancelar o horário de ${a.client_name}? O horário volta a ficar livre no site.`)) return;
-    const { adminSetAppointmentStatus } = await import("@/lib/actions");
+    const { adminSetAppointmentStatus } = await import("@/lib/acoes/admin-agenda");
     const r = await acao(
       () => adminSetAppointmentStatus(a.id, status),
       status === "concluido" ? "Atendimento concluído." : status === "cancelado" ? "Horário cancelado e liberado." : "Status atualizado."
@@ -67,6 +78,16 @@ export default function AbaAgendamentos() {
 
   return (
     <div className="space-y-6">
+      <div className="adm-lembrete">
+        <p>
+          <strong>Lembrete automático:</strong> todo dia às 9h as clientes com horário no dia seguinte recebem um e-mail, e
+          você recebe o resumo da agenda de amanhã.
+        </p>
+        <button className="btn btn-outline py-2! px-4! text-[0.8rem]! shrink-0" onClick={enviarLembretes}>
+          Enviar lembretes agora
+        </button>
+      </div>
+
       <BarraAba resumo={`${ativos.length - paraFechar.length} horários marcados daqui pra frente`}>
         <div className="adm-filtros" role="tablist">
           {(

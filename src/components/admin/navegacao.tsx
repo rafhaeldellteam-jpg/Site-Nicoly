@@ -12,7 +12,9 @@ export type Aba =
   | "galeria"
   | "funcionarios"
   | "novidades"
-  | "marketing";
+  | "marketing"
+  | "financeiro"
+  | "cliques";
 
 export interface ItemMenu {
   id: Aba;
@@ -90,6 +92,20 @@ const i = {
       <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
     </>
   ),
+  dinheiro: (
+    <>
+      <line x1="12" x2="12" y1="2" y2="22" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </>
+  ),
+  grafico: (
+    <>
+      <path d="M3 3v18h18" />
+      <path d="M7 15v3" />
+      <path d="M12 10v8" />
+      <path d="M17 6v12" />
+    </>
+  ),
   brilho: (
     <>
       <path d="M12 3l1.9 5.8L20 10l-6.1 1.2L12 17l-1.9-5.8L4 10l6.1-1.2z" />
@@ -106,6 +122,13 @@ export const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
       { id: "agendamentos", rotulo: "Agendamentos", titulo: "Agendamentos", subtitulo: "Horários marcados pelas clientes", icone: i.agenda },
       { id: "bloqueios", rotulo: "Bloqueios", titulo: "Bloqueios", subtitulo: "Feche dias, horários ou períodos (férias)", icone: i.bloqueio },
       { id: "historico", rotulo: "Histórico", titulo: "Histórico", subtitulo: "Atendimentos passados e cancelados", icone: i.historico },
+    ],
+  },
+  {
+    titulo: "Resultados",
+    itens: [
+      { id: "financeiro", rotulo: "Financeiro", titulo: "Financeiro", subtitulo: "O que entrou e o que ainda vai entrar", icone: i.dinheiro },
+      { id: "cliques", rotulo: "WhatsApp", titulo: "Cliques no WhatsApp", subtitulo: "De onde vêm as clientes que chamam no WhatsApp", icone: i.grafico },
     ],
   },
   {
@@ -131,7 +154,7 @@ export const GRUPOS: { titulo: string; itens: ItemMenu[] }[] = [
 export const MENU: ItemMenu[] = GRUPOS.flatMap((g) => g.itens);
 
 /** Atalhos da barra inferior no celular (o último botão abre o menu completo). */
-export const ATALHOS_CELULAR: Aba[] = ["dashboard", "agendamentos", "catalogo", "novidades"];
+export const ATALHOS_CELULAR: Aba[] = ["dashboard", "agendamentos", "financeiro", "catalogo"];
 
 export function IconeMenu({ children, size = 19 }: { children: ReactNode; size?: number }) {
   return (

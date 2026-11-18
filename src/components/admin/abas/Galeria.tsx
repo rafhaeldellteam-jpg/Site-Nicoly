@@ -6,7 +6,7 @@ import { BarraAba, Campo, CampoImagem, Carregando, ErroCarregar, Gaveta, ListaVa
 
 export default function AbaGaleria() {
   const { dados, erro, recarregar } = useDados<GaleriaItem[]>(async () => {
-    const { adminGetGaleria } = await import("@/lib/actions");
+    const { adminGetGaleria } = await import("@/lib/acoes/admin-site");
     return adminGetGaleria();
   });
   const [editando, setEditando] = useState<Partial<GaleriaItem> | null>(null);
@@ -68,7 +68,7 @@ function EditorFoto({ item, aoFechar, aoSalvar }: { item: Partial<GaleriaItem>; 
 
   async function salvar() {
     setSalvando(true);
-    const { adminSaveGaleria, uploadGaleriaImagem } = await import("@/lib/actions");
+    const { adminSaveGaleria, uploadGaleriaImagem } = await import("@/lib/acoes/admin-site");
     let imagem = url.trim();
     if (arquivo) {
       const up = await acao(async () => {
@@ -91,7 +91,7 @@ function EditorFoto({ item, aoFechar, aoSalvar }: { item: Partial<GaleriaItem>; 
 
   async function excluir() {
     if (!item.id || !confirm(`Remover "${item.titulo}" da galeria?`)) return;
-    const { adminDeleteGaleria } = await import("@/lib/actions");
+    const { adminDeleteGaleria } = await import("@/lib/acoes/admin-site");
     const r = await acao(() => adminDeleteGaleria(item.id!), "Foto removida.");
     if (r?.ok) aoSalvar();
   }

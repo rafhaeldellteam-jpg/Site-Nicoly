@@ -118,7 +118,7 @@ export async function adminSaveNovidade(
     : await supabaseAdmin.from("novidades").insert(registro);
   if (error) {
     if (/novidades/.test(error.message))
-      return { ok: false, erro: "A tabela de novidades ainda não existe. Rode o sql-painel-v2.sql no Supabase." };
+      return { ok: false, erro: "A tabela de novidades ainda não existe. Rode a migração 006 (supabase/migrations) no Supabase." };
     return { ok: false, erro: error.message };
   }
   return { ok: true };

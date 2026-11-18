@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useModal } from "@/lib/use-modal";
 import { IconCamera } from "@/components/icons";
@@ -46,7 +46,7 @@ export function useAvisos() {
 export function useAcao() {
   const avisar = useAvisos();
   return useCallback(
-    async <T extends { ok: boolean; erro?: string }>(
+    async <T extends { ok: boolean; erro?: string | undefined }>(
       fn: () => Promise<T>,
       msgOk?: string
     ): Promise<T | null> => {
@@ -249,18 +249,12 @@ export function CampoImagem({
   rotulo?: string;
   formato?: "quadrado" | "largo" | "redondo";
 }) {
-  const [previa, setPrevia] = useState<string | null>(null);
   const [erro, setErro] = useState("");
-
-  useEffect(() => {
-    if (!arquivo) {
-      setPrevia(null);
-      return;
-    }
-    const u = URL.createObjectURL(arquivo);
-    setPrevia(u);
-    return () => URL.revokeObjectURL(u);
-  }, [arquivo]);
+  const previa = useMemo(() => (arquivo ? URL.createObjectURL(arquivo) : null), [arquivo]);
+  // libera a memória da prévia quando a foto muda ou o formulário fecha
+  useEffect(() => () => {
+    if (previa) URL.revokeObjectURL(previa);
+  }, [previa]);
 
   const mostrar = previa ?? (url || null);
 

@@ -9,7 +9,7 @@ type Tipo = "horario" | "dia" | "periodo";
 
 export default function AbaBloqueios() {
   const { dados, erro, recarregar } = useDados<Bloqueio[]>(async () => {
-    const { adminGetBlockedSlots } = await import("@/lib/actions");
+    const { adminGetBlockedSlots } = await import("@/lib/acoes/admin-agenda");
     return adminGetBlockedSlots();
   });
   const acao = useAcao();
@@ -22,7 +22,7 @@ export default function AbaBloqueios() {
 
   async function bloquear() {
     setSalvando(true);
-    const { adminAddBlockedSlot } = await import("@/lib/actions");
+    const { adminAddBlockedSlot } = await import("@/lib/acoes/admin-agenda");
     const r = await acao(() =>
       adminAddBlockedSlot(
         data,
@@ -39,7 +39,7 @@ export default function AbaBloqueios() {
   }
 
   async function liberar(b: Bloqueio) {
-    const { adminRemoveBlockedSlot } = await import("@/lib/actions");
+    const { adminRemoveBlockedSlot } = await import("@/lib/acoes/admin-agenda");
     const r = await acao(() => adminRemoveBlockedSlot(b.id), "Liberado na agenda.");
     if (r?.ok) recarregar();
   }

@@ -6,7 +6,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Reveal from "@/components/Reveal";
 import { ServiceBookingButton } from "@/components/TriggerButtons";
-import { getServices } from "@/lib/actions";
+import { getServices } from "@/lib/acoes/publico";
 import { IconStar, IconClock, IconSparkle, IconRefresh, IconHeart } from "@/components/icons";
 
 export const metadata: Metadata = {

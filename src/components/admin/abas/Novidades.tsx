@@ -44,7 +44,7 @@ function situacao(n: Novidade, hoje: string): { cor: "verde" | "amarelo" | "neut
 
 export default function AbaNovidades() {
   const { dados, erro, recarregar } = useDados(async () => {
-    const { adminGetNovidades } = await import("@/lib/novidades-actions");
+    const { adminGetNovidades } = await import("@/lib/acoes/novidades");
     return adminGetNovidades();
   });
   const acao = useAcao();
@@ -56,7 +56,7 @@ export default function AbaNovidades() {
   if (dados.semTabela)
     return (
       <ListaVazia>
-        Falta criar a tabela de novidades. Rode o arquivo <code className="text-(--rose-gold)">sql-painel-v2.sql</code> no SQL Editor do Supabase e
+        Falta criar a tabela de novidades. Rode o arquivo <code className="text-(--rose-gold)">supabase/migrations/006_painel_v2.sql</code> no SQL Editor do Supabase e
         recarregue esta página.
       </ListaVazia>
     );
@@ -66,7 +66,7 @@ export default function AbaNovidades() {
   const noAr = itens.filter((n) => situacao(n, hoje).texto === "no ar agora");
 
   async function alternar(n: Novidade) {
-    const { adminSetNovidadeAtiva } = await import("@/lib/novidades-actions");
+    const { adminSetNovidadeAtiva } = await import("@/lib/acoes/novidades");
     const r = await acao(() => adminSetNovidadeAtiva(n.id!, n.ativo === false), n.ativo === false ? "Novidade ligada." : "Novidade desligada.");
     if (r?.ok) recarregar();
   }
@@ -184,7 +184,7 @@ function EditorNovidade({ n, aoFechar, aoSalvar }: { n: Partial<Novidade>; aoFec
     setSalvando(true);
     let url = imagem.trim() || null;
     if (arquivo) {
-      const { uploadNovidadeImagem } = await import("@/lib/novidades-actions");
+      const { uploadNovidadeImagem } = await import("@/lib/acoes/novidades");
       const up = await acao(async () => {
         const r = await uploadNovidadeImagem(arquivo);
         return { ok: !!r.url, erro: r.erro, url: r.url };
@@ -195,7 +195,7 @@ function EditorNovidade({ n, aoFechar, aoSalvar }: { n: Partial<Novidade>; aoFec
       }
       url = up.url ?? null;
     }
-    const { adminSaveNovidade } = await import("@/lib/novidades-actions");
+    const { adminSaveNovidade } = await import("@/lib/acoes/novidades");
     const r = await acao(
       () =>
         adminSaveNovidade({
@@ -223,7 +223,7 @@ function EditorNovidade({ n, aoFechar, aoSalvar }: { n: Partial<Novidade>; aoFec
 
   async function excluir() {
     if (!n.id || !confirm(`Excluir a novidade "${n.titulo}"?`)) return;
-    const { adminDeleteNovidade } = await import("@/lib/novidades-actions");
+    const { adminDeleteNovidade } = await import("@/lib/acoes/novidades");
     const r = await acao(() => adminDeleteNovidade(n.id!), "Novidade excluída.");
     if (r?.ok) aoSalvar();
   }

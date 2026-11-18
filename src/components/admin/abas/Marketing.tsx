@@ -28,14 +28,14 @@ interface DadosMarketing {
 
 async function enviarImagem(arquivo: File | null, atual: string): Promise<{ ok: boolean; erro?: string; url?: string | null }> {
   if (!arquivo) return { ok: true, url: atual.trim() || null };
-  const { uploadNovidadeImagem } = await import("@/lib/novidades-actions");
+  const { uploadNovidadeImagem } = await import("@/lib/acoes/novidades");
   const r = await uploadNovidadeImagem(arquivo);
   return { ok: !!r.url, erro: r.erro, url: r.url ?? null };
 }
 
 export default function AbaMarketing() {
   const { dados, erro, recarregar } = useDados<DadosMarketing>(async () => {
-    const m = await import("@/lib/marketing-actions");
+    const m = await import("@/lib/acoes/marketing");
     const [posts, promos, newsletter, indicacoes] = await Promise.all([
       m.adminGetBlogPosts(),
       m.adminGetPromocoes(),
@@ -81,7 +81,7 @@ function Blog({ posts, aoMudar }: { posts: BlogPost[]; aoMudar: () => void }) {
   const [editando, setEditando] = useState<Partial<BlogPost> | null>(null);
 
   async function publicar(p: BlogPost) {
-    const { adminSaveBlogPost } = await import("@/lib/marketing-actions");
+    const { adminSaveBlogPost } = await import("@/lib/acoes/marketing");
     const r = await acao(() => adminSaveBlogPost({ ...p, publicado: !p.publicado }), p.publicado ? "Post virou rascunho." : "Post publicado!");
     if (r?.ok) aoMudar();
   }
@@ -153,7 +153,7 @@ function EditorPost({ post, aoFechar, aoSalvar }: { post: Partial<BlogPost>; aoF
       setSalvando(false);
       return;
     }
-    const { adminSaveBlogPost } = await import("@/lib/marketing-actions");
+    const { adminSaveBlogPost } = await import("@/lib/acoes/marketing");
     const r = await acao(
       () =>
         adminSaveBlogPost({
@@ -174,7 +174,7 @@ function EditorPost({ post, aoFechar, aoSalvar }: { post: Partial<BlogPost>; aoF
 
   async function excluir() {
     if (!post.id || !confirm(`Excluir o post "${post.titulo}"?`)) return;
-    const { adminDeleteBlogPost } = await import("@/lib/marketing-actions");
+    const { adminDeleteBlogPost } = await import("@/lib/acoes/marketing");
     const r = await acao(() => adminDeleteBlogPost(post.id!), "Post excluído.");
     if (r?.ok) aoSalvar();
   }
@@ -227,7 +227,7 @@ function Promocoes({ promos, aoMudar }: { promos: Promocao[]; aoMudar: () => voi
   const [editando, setEditando] = useState<Partial<Promocao> | null>(null);
 
   async function alternar(p: Promocao) {
-    const { adminSavePromocao } = await import("@/lib/marketing-actions");
+    const { adminSavePromocao } = await import("@/lib/acoes/marketing");
     const r = await acao(() => adminSavePromocao({ ...p, ativa: !p.ativa }), p.ativa ? "Promoção desativada." : "Promoção ativada.");
     if (r?.ok) aoMudar();
   }
@@ -299,7 +299,7 @@ function EditorPromo({ promo, aoFechar, aoSalvar }: { promo: Partial<Promocao>; 
       setSalvando(false);
       return;
     }
-    const { adminSavePromocao } = await import("@/lib/marketing-actions");
+    const { adminSavePromocao } = await import("@/lib/acoes/marketing");
     const r = await acao(
       () => adminSavePromocao({ id: promo.id, titulo, descricao, desconto, cupom, validade, imagem: up.url ?? null, ativa }),
       nova ? "Promoção criada." : "Promoção atualizada."
@@ -310,7 +310,7 @@ function EditorPromo({ promo, aoFechar, aoSalvar }: { promo: Partial<Promocao>; 
 
   async function excluir() {
     if (!promo.id || !confirm(`Excluir a promoção "${promo.titulo}"?`)) return;
-    const { adminDeletePromocao } = await import("@/lib/marketing-actions");
+    const { adminDeletePromocao } = await import("@/lib/acoes/marketing");
     const r = await acao(() => adminDeletePromocao(promo.id!), "Promoção excluída.");
     if (r?.ok) aoSalvar();
   }
@@ -385,7 +385,7 @@ function ListaNewsletter({ itens, aoMudar }: { itens: Newsletter[]; aoMudar: () 
 
   async function remover(n: Newsletter) {
     if (!confirm(`Remover ${n.contato} da lista?`)) return;
-    const { adminDeleteNewsletter } = await import("@/lib/marketing-actions");
+    const { adminDeleteNewsletter } = await import("@/lib/acoes/marketing");
     const r = await acao(() => adminDeleteNewsletter(n.id!), "Removido da lista.");
     if (r?.ok) aoMudar();
   }

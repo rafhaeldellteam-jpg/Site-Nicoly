@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { IconCheck } from "@/components/icons";
-import { createAssinaturaPublic } from "@/lib/actions";
+import { createAssinaturaPublic } from "@/lib/acoes/planos";
+import Captcha, { captchaAtivo } from "@/components/Captcha";
 
 /** Formulário do pedido de Plano VIP (etapa 2 da página de planos). */
 export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] }) {
@@ -10,6 +11,8 @@ export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] })
   const [ok, setOk] = useState(false);
   const [erro, setErro] = useState("");
   const [form, setForm] = useState({ nome: "", whatsapp: "", email: "", tecnica: "" });
+  const [captcha, setCaptcha] = useState("");
+  const [novoCaptcha, setNovoCaptcha] = useState(0);
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault();
@@ -17,7 +20,7 @@ export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] })
     setEnviando(true);
     let res: { ok: boolean; erro?: string };
     try {
-      res = await createAssinaturaPublic(form);
+      res = await createAssinaturaPublic({ ...form, captcha });
     } catch {
       res = { ok: false, erro: "Sem conexão no momento. Tente novamente." };
     }
@@ -26,6 +29,8 @@ export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] })
       setOk(true);
     } else {
       setErro(res.erro ?? "Erro inesperado. Tente novamente.");
+      setCaptcha("");
+      setNovoCaptcha((n) => n + 1);
     }
   }
 
@@ -122,13 +127,15 @@ export default function PlanosSignup({ tecnicas = [] }: { tecnicas?: string[] })
         </select>
       </div>
 
+      <Captcha aoValidar={setCaptcha} reiniciar={novoCaptcha} />
+
       {erro && (
         <p role="alert" className="text-sm text-red-400">
           {erro}
         </p>
       )}
 
-      <button type="submit" disabled={enviando} className="btn btn-primary btn-block py-[16px]!">
+      <button type="submit" disabled={enviando || (captchaAtivo && !captcha)} className="btn btn-primary btn-block py-[16px]!">
         {enviando ? "Enviando..." : "Pedir meu Plano VIP — R$ 180/mês"}
       </button>
     </form>

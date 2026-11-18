@@ -274,3 +274,252 @@ export function buildPlanActivatedEmail(d: {
     rodapeMsg: "Você recebeu este e-mail porque seu Plano VIP Nicbeautty foi ativado.",
   });
 }
+
+/* ============ LEMBRETE DO AGENDAMENTO (1 dia antes) ============ */
+export function buildLembreteAgendamentoEmail(d: BookingEmailData): string {
+  return EMAIL({
+    tituloIcone: "Seu horário é amanhã!",
+    subtituloIcone: `Estamos te esperando, ${(d.nome || "").split(" ")[0] || "querida"}`,
+    corpoTabela: [
+      { rotulo: "Serviço", valor: d.servico, destaque: true },
+      { rotulo: "Data", valor: formatBRDate(d.data) },
+      { rotulo: "Horário", valor: d.horario, destaque: true },
+      { rotulo: "Local", valor: ENDERECO_LINHA },
+    ],
+    mensagemExtra: `<p style="color:#a1a1a8;font-size:13px;line-height:1.8;margin:0 0 18px;text-align:center;">
+      Chegue com os olhos limpos, sem maquiagem nos cílios.<br>
+      Não vai conseguir vir? Remarque ou cancele pelo site, sem precisar ligar.<br>
+      <a href="${MAPS_URL}" style="color:#d8a37d;">Ver rota no Google Maps</a>
+    </p>`,
+    botao: { texto: "Remarcar ou cancelar", url: `${BASE}/meus-horarios` },
+    rodapeMsg: "Você recebeu este lembrete porque agendou um horário na Nicbeautty.",
+  });
+}
+
+/* ============ REMARCAÇÃO (cliente) ============ */
+export function buildRemarcadoClienteEmail(d: BookingEmailData): string {
+  return EMAIL({
+    tituloIcone: "Horário remarcado!",
+    subtituloIcone: "Seu novo horário já está reservado",
+    corpoTabela: [
+      { rotulo: "Serviço", valor: d.servico, destaque: true },
+      { rotulo: "Nova data", valor: formatBRDate(d.data) },
+      { rotulo: "Novo horário", valor: d.horario, destaque: true },
+      { rotulo: "Local", valor: ENDERECO_LINHA },
+    ],
+    botao: { texto: "Ver Meu Horário", url: `${BASE}/meus-horarios` },
+    rodapeMsg: "Você recebeu este e-mail porque remarcou um horário na Nicbeautty.",
+  });
+}
+
+/* ============ CANCELAMENTO / REMARCAÇÃO (aviso ao salão) ============ */
+export function buildAlteracaoSalonEmail(d: {
+  tipo: "cancelado" | "remarcado";
+  nome: string;
+  telefone: string;
+  servico: string;
+  dataAntiga: string;
+  horaAntiga: string;
+  dataNova?: string;
+  horaNova?: string;
+}): string {
+  const remarcado = d.tipo === "remarcado";
+  return EMAIL({
+    tituloIcone: remarcado ? "Horário remarcado pela cliente" : "Horário cancelado pela cliente",
+    subtituloIcone: remarcado ? "A agenda já foi atualizada" : "O horário voltou a ficar livre no site",
+    corpoTabela: [
+      { rotulo: "Cliente", valor: d.nome },
+      { rotulo: "WhatsApp", valor: d.telefone },
+      { rotulo: "Serviço", valor: d.servico, destaque: true },
+      { rotulo: remarcado ? "Era" : "Data", valor: `${formatBRDate(d.dataAntiga)} às ${d.horaAntiga}` },
+      ...(remarcado && d.dataNova && d.horaNova
+        ? [{ rotulo: "Agora", valor: `${formatBRDate(d.dataNova)} às ${d.horaNova}`, destaque: true }]
+        : []),
+    ],
+    rodapeMsg: "Notificação automática do site Nicbeautty.",
+  });
+}
+
+/* ============ AGENDA DE AMANHÃ (resumo para o salão) ============ */
+export function buildAgendaDoDiaEmail(dataISO: string, itens: { horario: string; nome: string; servico: string; telefone: string }[]): string {
+  return EMAIL({
+    tituloIcone: `Agenda de amanhã: ${itens.length} ${itens.length === 1 ? "atendimento" : "atendimentos"}`,
+    subtituloIcone: formatBRDate(dataISO),
+    corpoTabela: itens.map((i) => ({ rotulo: i.horario, valor: `${i.nome} · ${i.servico}` })),
+    mensagemExtra: `<p style="color:#a1a1a8;font-size:12px;margin:0;text-align:center;">
+      As clientes com e-mail cadastrado receberam o lembrete automaticamente.
+    </p>`,
+    botao: { texto: "Abrir o painel", url: `${BASE}/admin` },
+    rodapeMsg: "Resumo automático do site Nicbeautty.",
+  });
+}
+
+/* ============ E-MAILS PERSONALIZADOS DO PLANO VIP ============ */
+
+export type TipoEmailPlano = "resumo" | "renovacao" | "manutencao";
+
+export interface DadosEmailPlano {
+  nome: string;
+  tecnica: string | null;
+  valor: number;
+  diasRestantes: number;
+  renovacao: string; // YYYY-MM-DD
+  progresso: number; // 0 a 1
+  usadas: number;
+  inclusas: number;
+  meses: number;
+  proxima: { data: string; horario: string; servico: string } | null;
+  sugestao: string | null; // YYYY-MM-DD
+  mensagem?: string | null; // recado escrito pela Nicoly
+}
+
+const WHATS_SALAO = process.env.NEXT_PUBLIC_WHATSAPP ?? "5511932139081";
+
+function primeiroNome(nome: string): string {
+  return (nome || "").trim().split(/\s+/)[0] || "querida";
+}
+
+/** "quinta-feira, 19 de novembro" (maiúscula = começo de frase) */
+function dataCurtaBR(iso: string, maiuscula = false): string {
+  const t = new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+  return maiuscula ? t.replace(/^\w/, (c) => c.toUpperCase()) : t;
+}
+
+function reais(v: number): string {
+  return `R$ ${Number(v).toFixed(2).replace(".", ",")}`;
+}
+
+/** Bloco com o número grande de dias e a barra do ciclo (tabelas: funciona no Gmail/Outlook). */
+function blocoCiclo(d: DadosEmailPlano): string {
+  const pct = Math.round(Math.min(1, Math.max(0, d.progresso)) * 100);
+  const cheio = Math.max(pct, 3);
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(140deg,rgba(184,130,92,0.35),rgba(240,203,176,0.08));background-color:#1d1712;border:1px solid rgba(216,163,125,0.45);border-radius:16px;margin-bottom:18px;">
+    <tr><td style="padding:22px 22px 20px;">
+      <table width="100%" cellpadding="0" cellspacing="0"><tr>
+        <td style="vertical-align:middle;">
+          <p style="margin:0;color:#f0cbb0;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">&#9819; Plano VIP ativo</p>
+          <p style="margin:6px 0 0;color:#e9ddd4;font-size:13px;">Renova em ${esc(dataCurtaBR(d.renovacao))}</p>
+        </td>
+        <td style="text-align:right;vertical-align:middle;white-space:nowrap;">
+          <span style="font-family:Georgia,serif;font-size:40px;line-height:1;color:#f0cbb0;font-weight:bold;">${d.diasRestantes}</span>
+          <span style="display:block;color:#c9b8ab;font-size:11px;">${d.diasRestantes === 1 ? "dia restante" : "dias restantes"}</span>
+        </td>
+      </tr></table>
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-radius:99px;background-color:rgba(0,0,0,0.35);">
+        <tr>
+          <td width="${cheio}%" style="height:10px;border-radius:99px;background:linear-gradient(90deg,#f0cbb0,#fff3e8);background-color:#f0cbb0;font-size:0;line-height:0;">&nbsp;</td>
+          <td style="font-size:0;line-height:0;">&nbsp;</td>
+        </tr>
+      </table>
+      <p style="margin:8px 0 0;color:#a1a1a8;font-size:11px;">${pct}% do mês do seu plano já passou</p>
+    </td></tr>
+  </table>`;
+}
+
+/** Bolinhas das manutenções do mês: cheias = usadas. */
+function blocoManutencoes(d: DadosEmailPlano): string {
+  const bolinhas = Array.from({ length: d.inclusas }, (_, i) => {
+    const usada = i < d.usadas;
+    return `<td style="padding:0 5px;"><div style="width:30px;height:30px;border-radius:50%;line-height:30px;text-align:center;font-size:14px;font-weight:bold;${
+      usada
+        ? "background:linear-gradient(135deg,#f0cbb0,#b8825c);background-color:#d8a37d;color:#14100c;"
+        : "border:2px solid rgba(216,163,125,0.5);color:#d8a37d;"
+    }">${usada ? "&#10003;" : i + 1}</div></td>`;
+  }).join("");
+  const restam = Math.max(0, d.inclusas - d.usadas);
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0d0d10;border:1px solid rgba(216,163,125,0.2);border-radius:14px;margin-bottom:18px;">
+    <tr><td style="padding:18px 20px;">
+      <p style="margin:0 0 12px;color:#f5f5f7;font-size:14px;font-weight:bold;">Manutenções deste mês</p>
+      <table cellpadding="0" cellspacing="0"><tr>${bolinhas}</tr></table>
+      <p style="margin:12px 0 0;color:#a1a1a8;font-size:13px;">${
+        restam === 0
+          ? "Você já aproveitou todas as manutenções inclusas deste mês. Arrasou!"
+          : `Você ainda tem <strong style="color:#f0cbb0;">${restam} ${restam === 1 ? "manutenção inclusa" : "manutenções inclusas"}</strong> até a renovação.`
+      }</p>
+    </td></tr>
+  </table>`;
+}
+
+function blocoSessao(d: DadosEmailPlano): string {
+  if (d.proxima) {
+    return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0d0d10;border:1px solid rgba(123,216,143,0.35);border-radius:14px;margin-bottom:18px;">
+    <tr><td style="padding:18px 20px;">
+      <p style="margin:0;color:#7bd88f;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;">Sua próxima sessão</p>
+      <p style="margin:8px 0 0;color:#f5f5f7;font-size:17px;font-weight:bold;">${esc(dataCurtaBR(d.proxima.data, true))} às ${esc(d.proxima.horario)}</p>
+      <p style="margin:4px 0 0;color:#a1a1a8;font-size:13px;">${esc(d.proxima.servico)} · ${esc(ENDERECO_LINHA)}</p>
+    </td></tr>
+  </table>`;
+  }
+  const quando = d.sugestao ? dataCurtaBR(d.sugestao) : "esta semana";
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0d0d10;border:1px dashed rgba(216,163,125,0.5);border-radius:14px;margin-bottom:18px;">
+    <tr><td style="padding:18px 20px;">
+      <p style="margin:0;color:#d8a37d;font-size:12px;letter-spacing:1.5px;text-transform:uppercase;font-weight:bold;">Próxima manutenção</p>
+      <p style="margin:8px 0 0;color:#f5f5f7;font-size:16px;font-weight:bold;">Ideal a partir de ${esc(quando)}</p>
+      <p style="margin:4px 0 0;color:#a1a1a8;font-size:13px;">Você ainda não tem horário marcado. Garanta o seu antes que a agenda encha.</p>
+    </td></tr>
+  </table>`;
+}
+
+function blocoRecado(mensagem: string | null | undefined): string {
+  const txt = (mensagem ?? "").trim();
+  if (!txt) return "";
+  return `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:18px;">
+    <tr><td style="padding:16px 18px;border-left:3px solid #d8a37d;background-color:rgba(216,163,125,0.08);border-radius:0 12px 12px 0;">
+      <p style="margin:0;color:#f0e6df;font-size:14px;line-height:1.7;font-style:italic;">${esc(txt.slice(0, 800)).replace(/\n/g, "<br>")}</p>
+      <p style="margin:10px 0 0;color:#d8a37d;font-size:13px;font-weight:bold;">— Nicoly</p>
+    </td></tr>
+  </table>`;
+}
+
+/** Monta o e-mail personalizado do plano (assunto + HTML). */
+export function buildEmailDoPlano(tipo: TipoEmailPlano, d: DadosEmailPlano): { assunto: string; html: string } {
+  const nome = primeiroNome(d.nome);
+  const dias = `${d.diasRestantes} ${d.diasRestantes === 1 ? "dia" : "dias"}`;
+  const textos: Record<TipoEmailPlano, { assunto: string; titulo: string; sub: string; intro: string }> = {
+    resumo: {
+      assunto: `${nome}, seu resumo VIP Nicbeautty ✨`,
+      titulo: `Seu mês VIP, ${nome}`,
+      sub: d.meses > 1 ? `Você está com a gente há ${d.meses} meses. Obrigada!` : "Obrigada por fazer parte do VIP!",
+      intro: "Preparei um resuminho de como está o seu plano:",
+    },
+    renovacao: {
+      assunto: `Faltam ${dias} para renovar seu Plano VIP`,
+      titulo: `Seu plano renova em ${dias}`,
+      sub: `Tudo certo para mais um mês de cílios impecáveis, ${nome}`,
+      intro: `A mensalidade de ${reais(d.valor)} renova em ${dataCurtaBR(d.renovacao)}. Veja como está o seu mês:`,
+    },
+    manutencao: {
+      assunto: `${nome}, está na hora da sua manutenção ✨`,
+      titulo: "Hora da manutenção!",
+      sub: `Seus cílios merecem esse carinho, ${nome}`,
+      intro: "Para manter o volume e o desenho perfeitos, o ideal é fazer a manutenção a cada 15 dias.",
+    },
+  };
+  const t = textos[tipo];
+
+  const corpo = `
+    <p style="color:#c9c9d1;font-size:14px;line-height:1.7;margin:0 0 18px;text-align:center;">${esc(t.intro)}</p>
+    ${blocoRecado(d.mensagem)}
+    ${tipo === "manutencao" ? blocoSessao(d) + blocoManutencoes(d) + blocoCiclo(d) : blocoCiclo(d) + blocoManutencoes(d) + blocoSessao(d)}
+    <div style="text-align:center;margin:4px 0 16px;">
+      <a href="${BASE}${d.proxima ? "/meus-horarios" : "/catalogo"}" style="display:inline-block;background:linear-gradient(135deg,#f0cbb0,#d8a37d,#b8825c);color:#14100c;text-decoration:none;font-weight:bold;font-size:14px;padding:14px 34px;border-radius:13px;">${
+        d.proxima ? "Ver meus horários e plano" : "Agendar minha manutenção"
+      }</a>
+    </div>
+    <p style="text-align:center;margin:0;font-size:13px;">
+      <a href="https://wa.me/${WHATS_SALAO}?text=${encodeURIComponent(`Oi Nicoly! Sou ${d.nome}, do Plano VIP.`)}" style="color:#d8a37d;text-decoration:none;">Falar com a Nicoly no WhatsApp</a>
+    </p>`;
+
+  const html = EMAIL({
+    tituloIcone: t.titulo,
+    subtituloIcone: t.sub,
+    mensagemExtra: corpo,
+    rodapeMsg: "Você recebeu este e-mail porque é cliente do Plano VIP Nicbeautty.",
+  });
+  return { assunto: t.assunto, html };
+}
