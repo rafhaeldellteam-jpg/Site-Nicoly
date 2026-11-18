@@ -8,7 +8,7 @@ import LinkWhatsapp from "@/components/LinkWhatsapp";
 import { supabase } from "@/lib/supabase";
 import { useModal } from "@/lib/use-modal";
 import { ANTECEDENCIA_ALTERACAO_HORAS, podeAlterarPeloSite, type HorarioGrade } from "@/lib/agenda";
-import { WhatsAppIcon } from "@/components/icons";
+import { IconCoroa, WhatsAppIcon } from "@/components/icons";
 import type { MeuPlano } from "@/lib/acoes/meu-plano";
 
 interface MeuAgendamento {
@@ -435,7 +435,9 @@ function CartaoPlano({ plano }: { plano: MeuPlano }) {
   if (plano.status === "pendente")
     return (
       <section className="meu-plano pendente mb-10">
-        <p className="meu-plano-selo">♛ Plano VIP</p>
+        <p className="meu-plano-selo">
+          <IconCoroa size={14} /> Plano VIP
+        </p>
         <h2 className="font-heading text-2xl">Pedido recebido!</h2>
         <p className="text-sm text-(--text-muted) mt-1">A Nicoly confirma o pagamento pelo WhatsApp e ativa seu plano. Você recebe um e-mail quando estiver tudo certo.</p>
       </section>
@@ -446,7 +448,9 @@ function CartaoPlano({ plano }: { plano: MeuPlano }) {
       <div className="meu-plano-brilho" aria-hidden="true" />
       <div className="flex items-start justify-between gap-4 relative">
         <div>
-          <p className="meu-plano-selo">♛ Plano VIP · ativo</p>
+          <p className="meu-plano-selo">
+            <IconCoroa size={14} /> Plano VIP · ativo
+          </p>
           <h2 className="font-heading text-2xl md:text-3xl">{plano.tecnica ?? "Seu plano mensal"}</h2>
           {plano.renovacao && <p className="text-sm text-(--text-muted) mt-1">Renova {dataBR(plano.renovacao)}</p>}
         </div>
@@ -472,7 +476,7 @@ function CartaoPlano({ plano }: { plano: MeuPlano }) {
         </div>
         <div>
           <small>Próxima manutenção</small>
-          <b>{plano.temHorarioMarcado ? "Já marcada ✓" : plano.sugestao ? `Ideal a partir de ${dataBR(plano.sugestao)}` : "—"}</b>
+          <b>{plano.temHorarioMarcado ? "Já marcada" : plano.sugestao ? `Ideal a partir de ${dataBR(plano.sugestao)}` : "—"}</b>
           {!plano.temHorarioMarcado && (
             <Link href="/catalogo" className="text-(--rose-gold) text-sm underline underline-offset-4">
               Agendar agora

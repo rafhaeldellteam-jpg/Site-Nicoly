@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
+import { IconSeta } from "@/components/icons";
 
 /*
  * Peças animadas do painel: números que sobem contando, anel de meta,
@@ -113,7 +114,7 @@ export function Bolinhas({ usadas, total }: { usadas: number; total: number }) {
   );
 }
 
-/** ▲ 12% / ▼ 8% comparando com o período anterior. */
+/** Seta + 12% / − 8% comparando com o período anterior. */
 export function Variacao({ atual, anterior, rotulo = "vs mês passado" }: { atual: number; anterior: number; rotulo?: string }) {
   if (anterior <= 0 && atual <= 0) return null;
   if (anterior <= 0) return <span className="anim-var sobe">novo {rotulo.replace("vs ", "no ")}</span>;
@@ -121,7 +122,7 @@ export function Variacao({ atual, anterior, rotulo = "vs mês passado" }: { atua
   const classe = pct > 0 ? "sobe" : pct < 0 ? "desce" : "";
   return (
     <span className={`anim-var ${classe}`} title={rotulo}>
-      {pct > 0 ? "▲" : pct < 0 ? "▼" : "•"} {Math.abs(pct)}% <small>{rotulo}</small>
+      {pct !== 0 && <IconSeta direcao={pct > 0 ? "cima" : "baixo"} size={10} />} {Math.abs(pct)}% <small>{rotulo}</small>
     </span>
   );
 }

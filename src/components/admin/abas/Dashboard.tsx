@@ -6,7 +6,7 @@ import type { DashboardData } from "@/lib/types";
 import type { Financeiro } from "@/lib/acoes/admin-relatorios";
 import type { PainelPlanos } from "@/lib/acoes/admin-planos";
 import { VIP_MANUTENCOES } from "@/lib/planos";
-import { WhatsAppIcon } from "@/components/icons";
+import { IconCalendario, IconCarteira, IconCoroa, IconEtiqueta, IconSino, IconSparkle, IconTendencia, WhatsAppIcon } from "@/components/icons";
 import { BarrasEmpilhadas, Legenda } from "../graficos";
 import { Anel, BarraCiclo, Bolinhas, Numero, Tendencia, Variacao, saudacao } from "../anima";
 import { Badge, Carregando, ErroCarregar, ListaVazia, Secao, dataCurta, dinheiro, linkWhatsCliente, useAcao, useDados } from "../ui";
@@ -75,7 +75,7 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
     detalhe: React.ReactNode;
     aba?: Aba;
     alerta?: boolean;
-    icone: string;
+    icone: React.ReactNode;
   }[] = [
     {
       rotulo: "Faturado no mês",
@@ -83,7 +83,7 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
       formatar: reais,
       detalhe: <Variacao atual={faturadoMes} anterior={faturadoAnterior} />,
       aba: "financeiro",
-      icone: "💰",
+      icone: <IconCarteira />,
     },
     {
       rotulo: "Vai entrar em 30 dias",
@@ -91,7 +91,7 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
       formatar: reais,
       detalhe: <span>horários marcados + mensalidades VIP</span>,
       aba: "financeiro",
-      icone: "📈",
+      icone: <IconTendencia />,
     },
     {
       rotulo: "Receita VIP por mês",
@@ -103,14 +103,14 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
         </span>
       ),
       aba: "planos",
-      icone: "👑",
+      icone: <IconCoroa size={18} />,
     },
     {
       rotulo: "Atendimentos hoje",
       valor: painel.agendados_hoje,
       detalhe: <span>{painel.proximos_7_dias} nos próximos 7 dias</span>,
       aba: "agendamentos",
-      icone: "🗓️",
+      icone: <IconCalendario />,
     },
     {
       rotulo: "Ticket médio",
@@ -118,7 +118,7 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
       formatar: reais,
       detalhe: <span>por atendimento (90 dias)</span>,
       aba: "financeiro",
-      icone: "✨",
+      icone: <IconEtiqueta />,
     },
     {
       rotulo: "Pendências",
@@ -136,7 +136,7 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
       ),
       aba: painel.planos_pendentes || g?.emAbertoQtd ? "planos" : "avaliacoes",
       alerta: pendencias > 0,
-      icone: "🔔",
+      icone: <IconSino />,
     },
   ];
 
@@ -150,7 +150,8 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
             {hoje.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
           </p>
           <h2 className="font-heading">
-            {saudacao(hoje)}, <span className="ouro-texto">{nome?.split(" ")[0] ?? "Nicoly"}</span> ✨
+            {saudacao(hoje)}, <span className="ouro-texto">{nome?.split(" ")[0] ?? "Nicoly"}</span>
+            <IconSparkle size={26} className="ds-hero-brilhinho" />
           </h2>
           <p className="ds-hero-resumo">
             {painel.agendados_hoje === 0
@@ -256,7 +257,7 @@ export default function AbaDashboard({ irPara, nome }: { irPara: (a: Aba) => voi
                 <div>
                   <small>Em aberto</small>
                   <b className={g.emAbertoQtd ? "text-[#ffcb6b]" : ""}>
-                    {g.emAbertoQtd ? `${reais(g.emAbertoValor)} (${g.emAbertoQtd})` : "nada 🎉"}
+                    {g.emAbertoQtd ? `${reais(g.emAbertoValor)} (${g.emAbertoQtd})` : "nada"}
                   </b>
                 </div>
               </div>
@@ -402,7 +403,7 @@ function MetaDoMes({ faturado, meta, mes, aoSalvar }: { faturado: number; meta: 
         ) : (
           <>
             <b>{meta ? dinheiro(meta) : "Defina uma meta"}</b>
-            <small>{meta ? (falta > 0 ? `faltam ${dinheiro(Math.round(falta))}` : "meta batida! 🎉") : "para acompanhar o mês"}</small>
+            <small>{meta ? (falta > 0 ? `faltam ${dinheiro(Math.round(falta))}` : "meta batida!") : "para acompanhar o mês"}</small>
             <button type="button" className="ds-meta-editar" onClick={() => setEditando(true)}>
               {meta ? "alterar" : "definir meta"}
             </button>

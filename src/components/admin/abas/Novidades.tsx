@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Novidade } from "@/lib/types";
 import { textoPeriodo } from "@/components/NovidadesPopup";
+import { IconSparkle } from "@/components/icons";
 import {
   Badge,
   BarraAba,
@@ -354,7 +355,9 @@ function EditorNovidade({ n, aoFechar, aoSalvar }: { n: Partial<Novidade>; aoFec
           <span className="adm-rotulo">Prévia</span>
           <div className="adm-previa-novidade">
             <div className="novidade-pilula-btn pointer-events-none">
-              <span className="novidade-pilula-icone" aria-hidden="true">✦</span>
+              <span className="novidade-pilula-icone" aria-hidden="true">
+                <IconSparkle size={12} />
+              </span>
               <span className="truncate">{chamada || titulo || "Sua novidade"}</span>
               <strong>Saiba mais</strong>
             </div>

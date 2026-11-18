@@ -5,6 +5,7 @@ import type { CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
 import { useModal } from "@/lib/use-modal";
 import CampoSenha from "@/components/CampoSenha";
+import { IconCheck } from "@/components/icons";
 
 type Modo = "entrar" | "criar" | "esqueci" | "nova";
 
@@ -88,7 +89,7 @@ export default function LoginModal() {
           options: { data: { nome: nome.trim() }, emailRedirectTo: window.location.origin },
         });
         if (error) return erro(traduzErro(error.message));
-        if (data.session) concluir(`Conta criada! Bem-vinda, ${nome.trim().split(" ")[0]} ✨`);
+        if (data.session) concluir(`Conta criada! Bem-vinda, ${nome.trim().split(" ")[0]}!`);
         else setMsg({ tipo: "ok", texto: "Conta criada! Confirme o e-mail que enviamos para ativar o login." });
       } else if (modo === "entrar") {
         const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: senha });
@@ -163,7 +164,9 @@ export default function LoginModal() {
         <div className="px-7 pb-8 md:px-10 md:pb-10">
           {sucesso ? (
             <div className="login-sucesso" role="status">
-              <div className="login-sucesso-check">✓</div>
+              <div className="login-sucesso-check">
+                <IconCheck size={40} />
+              </div>
               <p className="font-heading text-2xl">{msg?.texto}</p>
             </div>
           ) : (

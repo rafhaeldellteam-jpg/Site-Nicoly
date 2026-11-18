@@ -398,7 +398,7 @@ function blocoCiclo(d: DadosEmailPlano): string {
     <tr><td style="padding:22px 22px 20px;">
       <table width="100%" cellpadding="0" cellspacing="0"><tr>
         <td style="vertical-align:middle;">
-          <p style="margin:0;color:#f0cbb0;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">&#9819; Plano VIP ativo</p>
+          <p style="margin:0;color:#f0cbb0;font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:bold;">Plano VIP ativo</p>
           <p style="margin:6px 0 0;color:#e9ddd4;font-size:13px;">Renova em ${esc(dataCurtaBR(d.renovacao))}</p>
         </td>
         <td style="text-align:right;vertical-align:middle;white-space:nowrap;">
@@ -482,7 +482,7 @@ export function buildEmailDoPlano(tipo: TipoEmailPlano, d: DadosEmailPlano): { a
   const dias = `${d.diasRestantes} ${d.diasRestantes === 1 ? "dia" : "dias"}`;
   const textos: Record<TipoEmailPlano, { assunto: string; titulo: string; sub: string; intro: string }> = {
     resumo: {
-      assunto: `${nome}, seu resumo VIP Nicbeautty ✨`,
+      assunto: `${nome}, seu resumo VIP Nicbeautty`,
       titulo: `Seu mês VIP, ${nome}`,
       sub: d.meses > 1 ? `Você está com a gente há ${d.meses} meses. Obrigada!` : "Obrigada por fazer parte do VIP!",
       intro: "Preparei um resuminho de como está o seu plano:",
@@ -494,7 +494,7 @@ export function buildEmailDoPlano(tipo: TipoEmailPlano, d: DadosEmailPlano): { a
       intro: `A mensalidade de ${reais(d.valor)} renova em ${dataCurtaBR(d.renovacao)}. Veja como está o seu mês:`,
     },
     manutencao: {
-      assunto: `${nome}, está na hora da sua manutenção ✨`,
+      assunto: `${nome}, está na hora da sua manutenção`,
       titulo: "Hora da manutenção!",
       sub: `Seus cílios merecem esse carinho, ${nome}`,
       intro: "Para manter o volume e o desenho perfeitos, o ideal é fazer a manutenção a cada 15 dias.",
