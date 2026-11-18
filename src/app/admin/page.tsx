@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import LoginPainel from "@/components/admin/LoginPainel";
 import { supabase } from "@/lib/supabase";
 import { syncAuthCookie } from "@/lib/auth-cookie";
 import { AvisosProvider } from "@/components/admin/ui";
@@ -54,108 +55,89 @@ function perfilDe(user: { email?: string; user_metadata?: Record<string, unknown
 
 export default function AdminPage() {
   const [estado, setEstado] = useState<"carregando" | "login" | "negado" | "ok">("carregando");
-  const [erroLogin, setErroLogin] = useState(false);
-  const [entrando, setEntrando] = useState(false);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  // chegou pelo link "redefinir senha" do e-mail
+  const [recuperando, setRecuperando] = useState(false);
+  const [bemVinda, setBemVinda] = useState(false);
 
-  useEffect(() => {
-    function checar() {
-      supabase.auth.getSession().then(({ data }) => {
-        // o servidor confere este token em todas as ações do painel
-        syncAuthCookie(data.session);
-        setPerfil(perfilDe(data.session?.user));
-        const email = data.session?.user?.email ?? "";
-        if (!email) {
-          setEstado("login");
-          return;
-        }
-        // quem é administradora fica na tabela "administradores" do Supabase
-        verificarAcesso().then((ok) => setEstado(ok ? "ok" : "negado"));
-      });
-    }
-    checar();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => checar());
-    return () => sub.subscription.unsubscribe();
+  const checar = useCallback(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      // o servidor confere este token em todas as ações do painel
+      syncAuthCookie(data.session);
+      setPerfil(perfilDe(data.session?.user));
+      const email = data.session?.user?.email ?? "";
+      if (!email) {
+        setEstado("login");
+        return;
+      }
+      // quem é administradora fica na tabela "administradores" do Supabase
+      verificarAcesso().then((ok) => setEstado(ok ? "ok" : "negado"));
+    });
   }, []);
 
-  async function login(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setEntrando(true);
-    const fd = new FormData(e.currentTarget);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: String(fd.get("email") ?? ""),
-      password: String(fd.get("senha") ?? ""),
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === "PASSWORD_RECOVERY") setRecuperando(true);
+      checar();
     });
-    setEntrando(false);
-    const emailLogado = data.session?.user?.email ?? "";
-    syncAuthCookie(data.session);
-    setPerfil(perfilDe(data.session?.user));
-    if (error || !data.session || !emailLogado) {
-      setErroLogin(true);
-      return;
-    }
-    setErroLogin(false);
-    setEstado((await verificarAcesso()) ? "ok" : "negado");
-  }
+    return () => sub.subscription.unsubscribe();
+  }, [checar]);
 
   if (estado === "carregando")
-    return <main className="min-h-[100svh] flex items-center justify-center text-(--text-muted)">Carregando...</main>;
-
-  if (estado !== "ok")
     return (
-      <main className="min-h-[100svh] flex items-center justify-center px-5">
-        <div className="lux-card p-7 sm:p-10 w-full max-w-sm">
-          <h1 className="font-heading text-3xl text-center mb-1">
-            Painel <span className="text-(--rose-gold)">Nicbeautty</span>
-          </h1>
-          <p className="text-center text-xs tracking-[3px] uppercase text-(--text-muted) mb-8">Acesso restrito</p>
-
-          {estado === "negado" ? (
-            <>
-              <p className="text-center text-(--text-muted) text-sm mb-6">Esta conta não tem permissão de administradora.</p>
-              <button
-                onClick={async () => {
-                  await supabase.auth.signOut();
-                  syncAuthCookie(null);
-                  location.reload();
-                }}
-                className="btn btn-primary btn-block"
-              >
-                Entrar com outra conta
-              </button>
-            </>
-          ) : (
-            <form onSubmit={login}>
-              <div className="form-group">
-                <label htmlFor="adm-email">E-mail</label>
-                <input id="adm-email" name="email" type="email" className="input-lux" required autoComplete="username" />
-              </div>
-              <div className="form-group">
-                <label htmlFor="adm-senha">Senha</label>
-                <input id="adm-senha" name="senha" type="password" className="input-lux" required autoComplete="current-password" />
-              </div>
-              {erroLogin && (
-                <p className="text-[#ef5350] text-sm text-center mb-3" role="alert">
-                  E-mail ou senha incorretos.
-                </p>
-              )}
-              <button className="btn btn-primary btn-block mt-2" disabled={entrando}>
-                {entrando ? "Entrando..." : "Entrar"}
-              </button>
-              <p className="text-center text-xs text-(--text-muted) mt-4">Apenas administradoras autorizadas.</p>
-            </form>
-          )}
-          <Link href="/" className="block text-center text-sm text-(--text-muted) hover:text-(--rose-gold) mt-6">
-            ← Voltar ao site
-          </Link>
+      <main className="min-h-[100svh] flex flex-col items-center justify-center gap-5 text-(--text-muted)">
+        <div className="login-logo">
+          <span className="login-logo-anel" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/icon-192.png" alt="" width={64} height={64} />
         </div>
+        <span className="text-sm">Abrindo o painel...</span>
       </main>
+    );
+
+  if (estado !== "ok" || recuperando)
+    return (
+      <LoginPainel
+        negado={estado === "negado" && !recuperando}
+        recuperando={recuperando}
+        aoEntrar={() => {
+          setBemVinda(true);
+          checar();
+        }}
+        aoSenhaNova={() => {
+          setRecuperando(false);
+          setBemVinda(true);
+          checar();
+        }}
+      />
     );
 
   return (
     <AvisosProvider>
+      {bemVinda && <BoasVindas nome={perfil?.nome} aoTerminar={() => setBemVinda(false)} />}
       <Painel perfil={perfil} />
     </AvisosProvider>
+  );
+}
+
+/** Tela rápida de boas-vindas logo depois do login. */
+function BoasVindas({ nome, aoTerminar }: { nome?: string; aoTerminar: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(aoTerminar, 1700);
+    return () => clearTimeout(t);
+  }, [aoTerminar]);
+  return (
+    <div className="adm-bemvinda" aria-live="polite">
+      <div className="login-logo grande">
+        <span className="login-logo-anel" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/icons/icon-192.png" alt="" width={96} height={96} />
+      </div>
+      <p className="font-heading">
+        Olá, <span className="ouro-texto">{nome?.split(" ")[0] ?? "Nicoly"}</span>
+      </p>
+      <small>Preparando seu painel...</small>
+    </div>
   );
 }
 
@@ -357,7 +339,7 @@ function Painel({ perfil: perfilInicial }: { perfil: Perfil | null }) {
         </header>
 
         <div className="adm-pagina">
-          {aba === "dashboard" && <AbaDashboard irPara={irPara} />}
+          {aba === "dashboard" && <AbaDashboard irPara={irPara} nome={perfil?.nome} />}
           {aba === "agendamentos" && <AbaAgendamentos />}
           {aba === "bloqueios" && <AbaBloqueios />}
           {aba === "historico" && <AbaHistorico />}

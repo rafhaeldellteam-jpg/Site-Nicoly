@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 /*
  * Gráficos simples do painel, desenhados em SVG.
@@ -120,6 +120,8 @@ export function BarrasEmpilhadas({
                   d={ultimo ? barra(cx - bw / 2, y1, bw, h) : `M${cx - bw / 2},${y1 + 2}h${bw}v${h}h${-bw}Z`}
                   fill={series[s].cor}
                   opacity={ativo === null || ativo === i ? 1 : 0.45}
+                  className="viz-barra"
+                  style={{ "--d": `${i * 70 + s * 120}ms` } as CSSProperties}
                 />
               ) : null;
             });
@@ -207,7 +209,13 @@ export function BarrasDiarias({
             const x = margem.l + banda * i + (banda - bw) / 2;
             return (
               <g key={d.data}>
-                <path d={barra(x, y(d.total), bw, y(0) - y(d.total), 3)} fill={cor} opacity={ativo === null || ativo === i ? 1 : 0.45} />
+                <path
+                  d={barra(x, y(d.total), bw, y(0) - y(d.total), 3)}
+                  fill={cor}
+                  opacity={ativo === null || ativo === i ? 1 : 0.45}
+                  className="viz-barra"
+                  style={{ "--d": `${i * 18}ms` } as CSSProperties}
+                />
                 {(i % cada === 0 || i === dados.length - 1) && (
                   <text x={x + bw / 2} y={H - 7} textAnchor="middle" className="viz-eixo">
                     {formatarDia(d.data)}

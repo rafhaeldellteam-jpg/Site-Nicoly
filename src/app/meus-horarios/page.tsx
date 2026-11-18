@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useModal } from "@/lib/use-modal";
 import { ANTECEDENCIA_ALTERACAO_HORAS, podeAlterarPeloSite, type HorarioGrade } from "@/lib/agenda";
 import { WhatsAppIcon } from "@/components/icons";
+import type { MeuPlano } from "@/lib/acoes/meu-plano";
 
 interface MeuAgendamento {
   id: string;
@@ -51,6 +52,7 @@ export default function MeusHorariosPage() {
   const [itens, setItens] = useState<MeuAgendamento[]>([]);
   const [remarcando, setRemarcando] = useState<MeuAgendamento | null>(null);
   const [aviso, setAviso] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+  const [plano, setPlano] = useState<MeuPlano | null>(null);
 
   const carregar = useCallback(() => {
     return tokenAtual()
@@ -59,9 +61,16 @@ export default function MeusHorariosPage() {
           setEstado("semlogin");
           return;
         }
-        const { getMyAppointments } = await import("@/lib/acoes/agenda");
-        const lista = (await getMyAppointments(token)) as MeuAgendamento[];
+        const [{ getMyAppointments }, { getMeuPlano }] = await Promise.all([
+          import("@/lib/acoes/agenda"),
+          import("@/lib/acoes/meu-plano"),
+        ]);
+        const [lista, meuPlano] = await Promise.all([
+          getMyAppointments(token) as Promise<MeuAgendamento[]>,
+          getMeuPlano(token).catch(() => null),
+        ]);
         setItens(lista);
+        setPlano(meuPlano);
         setEstado(lista.length === 0 ? "vazio" : "ok");
       })
       .catch(() => setEstado("erro"));
@@ -122,6 +131,8 @@ export default function MeusHorariosPage() {
           )}
 
           {estado === "carregando" && <p className="text-(--text-muted)">Carregando...</p>}
+
+          {plano && (estado === "ok" || estado === "vazio") && <CartaoPlano plano={plano} />}
 
           {estado === "erro" && (
             <div className="lux-card p-8 max-w-md text-center">
@@ -414,5 +425,68 @@ function RemarcarModal({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Cartão do Plano VIP: quanto falta para renovar, manutenções do mês e sugestão de data. */
+function CartaoPlano({ plano }: { plano: MeuPlano }) {
+  const dataBR = (iso: string) =>
+    new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+  if (plano.status === "pendente")
+    return (
+      <section className="meu-plano pendente mb-10">
+        <p className="meu-plano-selo">♛ Plano VIP</p>
+        <h2 className="font-heading text-2xl">Pedido recebido!</h2>
+        <p className="text-sm text-(--text-muted) mt-1">A Nicoly confirma o pagamento pelo WhatsApp e ativa seu plano. Você recebe um e-mail quando estiver tudo certo.</p>
+      </section>
+    );
+  const pct = Math.round(plano.progresso * 100);
+  return (
+    <section className="meu-plano mb-10" aria-label="Seu Plano VIP">
+      <div className="meu-plano-brilho" aria-hidden="true" />
+      <div className="flex items-start justify-between gap-4 relative">
+        <div>
+          <p className="meu-plano-selo">♛ Plano VIP · ativo</p>
+          <h2 className="font-heading text-2xl md:text-3xl">{plano.tecnica ?? "Seu plano mensal"}</h2>
+          {plano.renovacao && <p className="text-sm text-(--text-muted) mt-1">Renova {dataBR(plano.renovacao)}</p>}
+        </div>
+        <div className="text-right shrink-0">
+          <strong className="meu-plano-dias">{plano.diasRestantes}</strong>
+          <span className="block text-xs text-(--text-muted)">{plano.diasRestantes === 1 ? "dia restante" : "dias restantes"}</span>
+        </div>
+      </div>
+      <div className="anim-barra relative mt-4" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Mês do plano">
+        <span style={{ "--p": `${pct}%` } as React.CSSProperties} />
+      </div>
+      <div className="meu-plano-grade relative">
+        <div>
+          <small>Manutenções do mês</small>
+          <span className="anim-bolinhas mt-1">
+            {Array.from({ length: plano.inclusas }, (_, i) => (
+              <i key={i} className={i < plano.usadas ? "on" : ""} />
+            ))}
+          </span>
+          <b>
+            {Math.max(0, plano.inclusas - plano.usadas)} de {plano.inclusas} disponíveis
+          </b>
+        </div>
+        <div>
+          <small>Próxima manutenção</small>
+          <b>{plano.temHorarioMarcado ? "Já marcada ✓" : plano.sugestao ? `Ideal a partir de ${dataBR(plano.sugestao)}` : "—"}</b>
+          {!plano.temHorarioMarcado && (
+            <Link href="/catalogo" className="text-(--rose-gold) text-sm underline underline-offset-4">
+              Agendar agora
+            </Link>
+          )}
+        </div>
+        <div>
+          <small>No VIP há</small>
+          <b>
+            {plano.meses} {plano.meses === 1 ? "mês" : "meses"}
+          </b>
+          <span className="text-xs text-(--text-muted)">+ {plano.designs} designs de sobrancelha por mês</span>
+        </div>
+      </div>
+    </section>
   );
 }

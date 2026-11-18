@@ -11,9 +11,20 @@ import { createCalendarEvent } from "@/lib/google-calendar";
 import { ERRO_CAPTCHA, verificarCaptcha } from "@/lib/captcha";
 import { sendNicEmail } from "@/lib/gmail";
 import { buildPlanActivatedEmail, buildReminderEmail, buildAssinaturaSalonEmail } from "@/lib/emails";
-import { proximaRenovacao, VIP_VALOR_PADRAO } from "@/lib/planos";
+import { cicloAtual, proximaRenovacao, VIP_VALOR_PADRAO } from "@/lib/planos";
 import { emailDoSalao, validarEmail, validarTelefone } from "@/lib/servidor";
 import type { Assinatura } from "@/lib/types";
+
+/** Registra a mensalidade do ciclo atual como paga (ignora se a tabela do SQL 009 não existir). */
+async function registrarMensalidade(id: number, inicio: string | null, valor: number | null) {
+  const ciclo = cicloAtual(inicio, hojeSP());
+  await supabaseAdmin
+    .from("planos_pagamentos")
+    .upsert(
+      { assinatura_id: id, referencia: ciclo.inicio, valor: Number(valor ?? VIP_VALOR_PADRAO), pago_em: hojeSP() },
+      { onConflict: "assinatura_id,referencia" }
+    );
+}
 
 export async function adminGetAssinaturas(): Promise<Assinatura[]> {
   await requireAdmin();
@@ -43,18 +54,24 @@ export async function adminSaveAssinatura(
   };
   const emailCliente = a.cliente_email?.trim() || null;
 
-  let { error } = await supabaseAdmin
+  let { data: salvo, error } = await supabaseAdmin
     .from("planos_assinaturas")
-    .upsert({ ...registro, ...(emailCliente ? { cliente_email: emailCliente } : {}) }, { onConflict: "id" });
+    .upsert({ ...registro, ...(emailCliente ? { cliente_email: emailCliente } : {}) }, { onConflict: "id" })
+    .select("id")
+    .single();
   if (error && /cliente_email/i.test(error.message)) {
     // coluna ainda não existe no banco — salva sem o e-mail
-    ({ error } = await supabaseAdmin
+    ({ data: salvo, error } = await supabaseAdmin
       .from("planos_assinaturas")
-      .upsert(registro, { onConflict: "id" }));
+      .upsert(registro, { onConflict: "id" })
+      .select("id")
+      .single());
   }
   if (error) return { ok: false, erro: error.message };
 
   if (!a.id && (a.status || "ativo") === "ativo") {
+    // assinatura criada já ativa = primeira mensalidade recebida
+    if (salvo?.id) await registrarMensalidade(Number(salvo.id), registro.inicio, registro.valor_mensal);
     const assinaturaData = {
       nome: registro.cliente_nome,
       whatsapp: registro.cliente_whatsapp ?? "-",
@@ -120,15 +137,27 @@ export async function adminSetAssinaturaStatus(
     .eq("id", id)
     .single();
 
+  // o plano feito pelo site começa a contar no dia em que o pagamento é confirmado
+  const ativando = (anterior as { status?: string } | null)?.status === "pendente" && status === "ativo";
   const { error } = await supabaseAdmin
     .from("planos_assinaturas")
-    .update({ status })
+    .update(ativando ? { status, inicio: hojeSP() } : { status })
     .eq("id", id);
   if (error) return { ok: false, erro: error.message };
+
+  // data do cancelamento (mede quanto tempo a cliente ficou); coluna do SQL 009
+  if (status === "cancelado")
+    await supabaseAdmin.from("planos_assinaturas").update({ cancelado_em: hojeSP() }).eq("id", id);
+  else if (anterior?.cancelado_em)
+    await supabaseAdmin.from("planos_assinaturas").update({ cancelado_em: null }).eq("id", id);
 
   // plano feito pelo site e confirmado agora pela Nicoly → avisa a cliente
   const row = (anterior ?? null) as Record<string, unknown> | null;
   const emailCliente = (row?.cliente_email as string | null | undefined)?.trim();
+  // pagamento confirmado = primeira mensalidade recebida
+  if (row && row.status === "pendente" && status === "ativo")
+    await registrarMensalidade(id, hojeSP(), (row.valor_mensal as number | null) ?? null);
+
   if (row && row.status === "pendente" && status === "ativo" && emailCliente) {
     after(async () => {
       try {
@@ -139,7 +168,7 @@ export async function adminSetAssinaturaStatus(
             nome: String(row.cliente_nome ?? ""),
             tecnica: (row.tecnica as string | null) ?? null,
             valorMensal: Number(row.valor_mensal ?? VIP_VALOR_PADRAO),
-            inicio: String(row.inicio ?? hojeSP()),
+            inicio: hojeSP(),
           })
         );
       } catch (err) {

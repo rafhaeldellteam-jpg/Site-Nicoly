@@ -2,11 +2,13 @@
 
 import type { Financeiro } from "@/lib/acoes/admin-relatorios";
 import { BarrasEmpilhadas, BarrasHorizontais, Legenda } from "../graficos";
+import { Numero, Variacao } from "../anima";
 import { Carregando, ErroCarregar, ListaVazia, Secao, dinheiro, useDados } from "../ui";
 import type { Aba } from "../navegacao";
 
 const COR_RECEBIDO = "var(--viz-1)";
 const COR_AGENDADO = "var(--viz-2)";
+const COR_PLANOS = "var(--viz-3)";
 
 function nomeMes(mes: string, curto = true): string {
   const [a, m] = mes.split("-").map(Number);
@@ -31,17 +33,21 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
   const mesAtual = dados.hoje.slice(0, 7);
   const idxAtual = dados.meses.findIndex((m) => m.mes === mesAtual);
   const vaiEntrar30 = dados.proximos30Agendado + dados.vipMensal;
-  const semDados = dados.meses.every((m) => m.recebido === 0 && m.agendado === 0) && dados.vipMensal === 0;
+  const semDados = dados.meses.every((m) => m.recebido === 0 && m.agendado === 0 && m.planos === 0) && dados.vipMensal === 0;
 
   return (
     <div className="space-y-8">
       <div className="fin-cards">
         <div className="fin-card destaque">
           <span>Entrou em {nomeMes(mesAtual, false)}</span>
-          <strong>{dinheiro(dados.recebidoMes)}</strong>
+          <strong>
+            <Numero valor={dados.recebidoMes + dados.planosMes} formatar={(v) => dinheiro(Math.round(v))} />
+          </strong>
           <small>
-            {dados.atendimentosMes} {dados.atendimentosMes === 1 ? "atendimento concluído" : "atendimentos concluídos"}
+            {dinheiro(dados.recebidoMes)} em {dados.atendimentosMes} {dados.atendimentosMes === 1 ? "atendimento" : "atendimentos"} +{" "}
+            {dinheiro(dados.planosMes)} de mensalidades VIP
           </small>
+          <Variacao atual={dados.recebidoMes + dados.planosMes} anterior={dados.recebidoMesAnterior + dados.planosMesAnterior} />
         </div>
         <div className="fin-card">
           <span>Ainda vai entrar este mês</span>
@@ -76,8 +82,8 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
       )}
 
       <Secao
-        titulo="Atendimentos por mês"
-        descricao="Concluído = já entrou. Agendado = horário confirmado que ainda não foi marcado como concluído."
+        titulo="Faturamento por mês"
+        descricao="Atendimentos concluídos e mensalidades VIP já entraram. Agendado = horário confirmado que ainda não foi marcado como concluído."
       >
         {semDados ? (
           <ListaVazia>Ainda não há atendimentos com preço nos últimos meses.</ListaVazia>
@@ -85,7 +91,8 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
           <div className="lux-card p-4 md:p-5">
             <Legenda
               itens={[
-                { cor: COR_RECEBIDO, rotulo: "Concluído (entrou)" },
+                { cor: COR_RECEBIDO, rotulo: "Atendimentos concluídos" },
+                { cor: COR_PLANOS, rotulo: "Mensalidades VIP" },
                 { cor: COR_AGENDADO, rotulo: "Agendado (vai entrar)" },
               ]}
             />
@@ -93,10 +100,11 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
               dados={dados.meses.map((m) => ({
                 rotulo: nomeMes(m.mes),
                 dica: nomeMes(m.mes, false),
-                valores: [m.recebido, m.agendado],
+                valores: [m.recebido, m.planos, m.agendado],
               }))}
               series={[
-                { cor: COR_RECEBIDO, rotulo: "Concluído" },
+                { cor: COR_RECEBIDO, rotulo: "Atendimentos" },
+                { cor: COR_PLANOS, rotulo: "Planos VIP" },
                 { cor: COR_AGENDADO, rotulo: "Agendado" },
               ]}
               formatar={compacto}
@@ -108,7 +116,8 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
                 <thead>
                   <tr>
                     <th>Mês</th>
-                    <th>Concluído</th>
+                    <th>Atendimentos</th>
+                    <th>Planos VIP</th>
                     <th>Agendado</th>
                     <th>Total</th>
                   </tr>
@@ -118,8 +127,9 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
                     <tr key={m.mes}>
                       <td>{nomeMes(m.mes, false)}</td>
                       <td>{dinheiro(m.recebido)}</td>
+                      <td>{dinheiro(m.planos)}</td>
                       <td>{dinheiro(m.agendado)}</td>
-                      <td>{dinheiro(m.recebido + m.agendado)}</td>
+                      <td>{dinheiro(m.recebido + m.planos + m.agendado)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -128,7 +138,7 @@ export default function AbaFinanceiro({ irPara }: { irPara: (a: Aba) => void }) 
           </div>
         )}
         <p className="text-xs text-(--text-muted) mt-3">
-          Sem contar a mensalidade do VIP; os atendimentos de clientes VIP aparecem como R$ 0, porque já estão pagos no plano.
+          Os atendimentos de clientes VIP contam como R$ 0, porque já estão pagos na mensalidade (que aparece em Planos VIP).
           {dados.semPreco > 0 && ` ${dados.semPreco} atendimento(s) sem preço no catálogo ficaram de fora.`}
         </p>
       </Secao>

@@ -12,12 +12,16 @@ import { requireAdmin } from "@/lib/admin-auth";
 const CHAVES = {
   /** link "Avaliar no Google" (Perfil da Empresa → Pedir avaliações) */
   google_avaliacao_url: { max: 400, validar: (v: string) => /^https:\/\/(g\.page|search\.google\.com|www\.google\.com|maps\.app\.goo\.gl|g\.co)\//.test(v) },
+  /** meta de faturamento do mês, em reais (painel → Início) */
+  meta_mensal: { max: 10, validar: (v: string) => /^\d{1,7}(\.\d{1,2})?$/.test(v) },
 } as const;
 
 type Chave = keyof typeof CHAVES;
+const PUBLICAS: Chave[] = ["google_avaliacao_url"];
 
 export async function getConfiguracao(chave: Chave): Promise<string | null> {
-  if (!(chave in CHAVES)) return null;
+  // só configurações públicas podem ser lidas por qualquer visitante
+  if (!PUBLICAS.includes(chave)) return null;
   const { data, error } = await supabaseAdmin.from("configuracoes").select("valor").eq("chave", chave).maybeSingle();
   if (error || !data) return null;
   return (data as { valor: string | null }).valor ?? null;
@@ -29,7 +33,13 @@ export async function adminSetConfiguracao(chave: Chave, valor: string): Promise
   if (!regra) return { ok: false, erro: "Configuração desconhecida." };
   const v = String(valor ?? "").trim().slice(0, regra.max);
   if (v && !regra.validar(v))
-    return { ok: false, erro: "Cole o link copiado do Google (começa com https://g.page/ ou https://search.google.com/)." };
+    return {
+      ok: false,
+      erro:
+        chave === "meta_mensal"
+          ? "Digite só o valor da meta, por exemplo 5000."
+          : "Cole o link copiado do Google (começa com https://g.page/ ou https://search.google.com/).",
+    };
 
   const { error } = await supabaseAdmin
     .from("configuracoes")

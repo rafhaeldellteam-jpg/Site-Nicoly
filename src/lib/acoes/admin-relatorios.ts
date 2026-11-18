@@ -5,6 +5,7 @@
 import { supabaseAdmin } from "@/lib/supabase";
 import { requireAdmin } from "@/lib/admin-auth";
 import { hojeSP } from "@/lib/datas";
+import { carregarPagamentos } from "@/lib/planos-resumo";
 
 /* ================= FINANCEIRO ================= */
 
@@ -12,6 +13,7 @@ export interface MesFinanceiro {
   mes: string; // YYYY-MM
   recebido: number; // atendimentos concluídos
   agendado: number; // atendimentos confirmados ainda não concluídos
+  planos: number; // mensalidades do VIP recebidas no mês
 }
 
 export interface Financeiro {
@@ -30,6 +32,11 @@ export interface Financeiro {
   meses: MesFinanceiro[];
   porServico: { nome: string; valor: number; qtd: number }[];
   semPreco: number; // atendimentos sem preço cadastrado (ficam fora das somas)
+  recebidoMesAnterior: number;
+  planosMes: number;
+  planosMesAnterior: number;
+  /** meta de faturamento do mês definida no painel (atendimentos + planos) */
+  meta: number | null;
 }
 
 type LinhaAg = {
@@ -63,7 +70,7 @@ export async function adminFinanceiro(): Promise<Financeiro> {
   const ultimoMes = somarMeses(mesAtual, 1);
   const limite = `${somarMeses(ultimoMes, 1)}-01`;
 
-  const [agRes, vipRes] = await Promise.all([
+  const [agRes, vipRes, pagamentos, metaRes] = await Promise.all([
     supabaseAdmin
       .from("appointments")
       .select("*, services(nome, preco)")
@@ -72,7 +79,10 @@ export async function adminFinanceiro(): Promise<Financeiro> {
       .neq("status", "cancelado")
       .limit(5000),
     supabaseAdmin.from("planos_assinaturas").select("*").eq("status", "ativo"),
+    carregarPagamentos(),
+    supabaseAdmin.from("configuracoes").select("valor").eq("chave", "meta_mensal").maybeSingle(),
   ]);
+  const mesAnterior = somarMeses(mesAtual, -1);
 
   const vips = (vipRes.data ?? []) as { cliente_whatsapp?: string | null; cliente_email?: string | null; valor_mensal?: number | null }[];
   const telefonesVip = new Set(vips.map((v) => soDigitos(v.cliente_whatsapp)).filter((t) => t.length >= 10));
@@ -83,12 +93,18 @@ export async function adminFinanceiro(): Promise<Financeiro> {
   const meses = new Map<string, MesFinanceiro>();
   for (let i = 0; i < 7; i++) {
     const m = somarMeses(primeiroMes, i);
-    meses.set(m, { mes: m, recebido: 0, agendado: 0 });
+    meses.set(m, { mes: m, recebido: 0, agendado: 0, planos: 0 });
   }
 
   const em30 = somarDias(hoje, 30);
   const ha90 = somarDias(hoje, -90);
   const servicos = new Map<string, { nome: string; valor: number; qtd: number }>();
+  for (const p of pagamentos ?? []) {
+    const mes = meses.get(p.pago_em.slice(0, 7));
+    if (mes) mes.planos += p.valor;
+  }
+  const metaNum = Number((metaRes.data as { valor?: string | null } | null)?.valor ?? "");
+
   const r: Omit<Financeiro, "meses" | "porServico"> = {
     hoje,
     recebidoMes: 0,
@@ -103,6 +119,10 @@ export async function adminFinanceiro(): Promise<Financeiro> {
     paraFecharValor: 0,
     ticketMedio90: 0,
     semPreco: 0,
+    recebidoMesAnterior: 0,
+    planosMes: meses.get(mesAtual)?.planos ?? 0,
+    planosMesAnterior: meses.get(mesAnterior)?.planos ?? 0,
+    meta: Number.isFinite(metaNum) && metaNum > 0 ? metaNum : null,
   };
   let recebido90 = 0;
   let qtd90 = 0;
@@ -122,6 +142,7 @@ export async function adminFinanceiro(): Promise<Financeiro> {
       else mes.agendado += valor;
     }
 
+    if (concluido && data.startsWith(mesAnterior)) r.recebidoMesAnterior += valor;
     if (concluido && data.startsWith(mesAtual)) {
       r.recebidoMes += valor;
       r.atendimentosMes++;

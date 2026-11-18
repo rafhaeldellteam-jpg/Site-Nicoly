@@ -5,7 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatarDuracao, parseDuracaoMin, podeAlterarPeloSite, inicioDoAtendimento, duracaoDoServico } from "../src/lib/agenda.ts";
-import { proximaRenovacao } from "../src/lib/planos.ts";
+import { avisoDevido, cicloAtual, proximaRenovacao, sugestaoManutencao } from "../src/lib/planos.ts";
 import { escaparLike, validarEmail, validarTelefone } from "../src/lib/texto.ts";
 
 test("lê a duração escrita no catálogo", () => {
@@ -63,4 +63,46 @@ test("valida telefone e e-mail", () => {
   assert.ok(!validarTelefone("123"));
   assert.ok(validarEmail("cliente@gmail.com"));
   assert.ok(!validarEmail("cliente@"));
+});
+
+/* ===== Plano VIP: ciclo, manutenção e avisos automáticos ===== */
+
+test("ciclo do VIP: 30 dias a partir do início", () => {
+  const c = cicloAtual("2026-10-01", "2026-10-11");
+  assert.equal(c.numero, 0);
+  assert.equal(c.inicio, "2026-10-01");
+  assert.equal(c.renovacao, "2026-10-31");
+  assert.equal(c.diasRestantes, 20);
+  assert.ok(Math.abs(c.progresso - 1 / 3) < 0.01);
+
+  const c2 = cicloAtual("2026-10-01", "2026-11-05");
+  assert.equal(c2.numero, 1);
+  assert.equal(c2.inicio, "2026-10-31");
+  assert.equal(c2.renovacao, "2026-11-30");
+
+  // no dia da renovação já começa o ciclo novo
+  const c3 = cicloAtual("2026-10-01", "2026-10-31");
+  assert.equal(c3.numero, 1);
+  assert.equal(c3.diasRestantes, 30);
+});
+
+test("sugere a manutenção 15 dias depois da última sessão", () => {
+  assert.equal(sugestaoManutencao("2026-11-01", "2026-11-05"), "2026-11-16");
+  assert.equal(sugestaoManutencao("2026-10-01", "2026-11-05"), "2026-11-05", "atrasada = hoje");
+  assert.equal(sugestaoManutencao(null, "2026-11-05"), "2026-11-05");
+});
+
+test("avisos automáticos do VIP", () => {
+  const base = { status: "ativo", email: "ana@x.com", usadasCiclo: 1, proxima: null, ultima: { data: "2026-11-10" } };
+  // faltam 3 dias para renovar → aviso de renovação
+  const perto = { ...base, ciclo: cicloAtual("2026-10-20", "2026-11-16") };
+  assert.deepEqual(avisoDevido(perto, "2026-11-16"), { tipo: "renovacao", chave: "2026-11-19" });
+  // 15 dias sem vir e sem horário → hora da manutenção
+  const ciclo = cicloAtual("2026-11-01", "2026-11-25");
+  assert.deepEqual(avisoDevido({ ...base, ciclo }, "2026-11-25"), { tipo: "manutencao", chave: "2026-11-10" });
+  // com horário marcado não manda nada
+  assert.equal(avisoDevido({ ...base, ciclo, proxima: { data: "2026-11-28" } }, "2026-11-25"), null);
+  // sem e-mail ou plano pausado não manda nada
+  assert.equal(avisoDevido({ ...base, ciclo, email: null }, "2026-11-25"), null);
+  assert.equal(avisoDevido({ ...base, ciclo, status: "pausado" }, "2026-11-25"), null);
 });
